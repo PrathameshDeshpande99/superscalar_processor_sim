@@ -1,3 +1,4 @@
+# not using this file
 import re
 
 # ============================================================
@@ -8,17 +9,13 @@ INSTRUCTION_SET = {
     # R-Type
     "add": {"type": "R", "opcode": "0110011", "funct3": "000", "funct7": "0000000"},
     "sub": {"type": "R", "opcode": "0110011", "funct3": "000", "funct7": "0100000"},
-
     # I-Type
     "addi": {"type": "I", "opcode": "0010011", "funct3": "000"},
-    "lw":   {"type": "I", "opcode": "0000011", "funct3": "010"},
-
+    "lw": {"type": "I", "opcode": "0000011", "funct3": "010"},
     # S-Type
     "sw": {"type": "S", "opcode": "0100011", "funct3": "010"},
-
     # B-Type
     "bne": {"type": "B", "opcode": "1100011", "funct3": "001"},
-
     # J-Type
     "jal": {"type": "J", "opcode": "1101111"},
 }
@@ -28,11 +25,12 @@ INSTRUCTION_SET = {
 # Utility Functions
 # ============================================================
 
+
 def to_binary(value, bits):
     """Convert signed integer to binary of fixed width."""
     if value < 0:
         value = (1 << bits) + value
-    return format(value, f'0{bits}b')
+    return format(value, f"0{bits}b")
 
 
 def parse_register(reg):
@@ -43,6 +41,7 @@ def parse_register(reg):
 # ============================================================
 # Encoding Functions
 # ============================================================
+
 
 def encode_r_type(spec, rd, rs1, rs2):
     return (
@@ -106,6 +105,7 @@ def encode_j_type(spec, rd, imm):
 # ============================================================
 # Assembler Class
 # ============================================================
+
 
 class Assembler:
     def __init__(self):
