@@ -20,3 +20,4 @@ def convert_asm_to_json(input_file, output_file):
 
 # Usage
 convert_asm_to_json(input_file, "../json_input.json")
+
