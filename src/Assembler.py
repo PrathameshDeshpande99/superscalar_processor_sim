@@ -1,0 +1,85 @@
+import json
+
+json_file = "../json_input.json"
+binary_instruction_file = "../binary_input.json"
+
+with open(json_file, "r") as f:
+    data = json.load(f)
+
+binary_data = {}
+
+for Instruction_number in data:
+    original_string = data[Instruction_number]
+
+    string_parts = original_string.split()
+
+    if string_parts[0] == "add" or string_parts[0] == "sub":
+        dest_reg = string_parts[1][1:]
+        source_1 = string_parts[2][1:]
+        source_2 = string_parts[3][1:]
+
+        bin_dst = f"{int(dest_reg):05b}"
+        bin_src_1 = f"{int(source_1):05b}"
+        bin_src_2 = f"{int(source_2):05b}"
+
+        func3 = "000"
+        func7 = "0000000" if string_parts[0] == "add" else "0100000"
+        opcode = "0110011"
+
+        Instruction_binary = func7 + bin_src_1 + bin_src_2 + func3 + bin_dst + opcode
+
+        binary_data[Instruction_number] = Instruction_binary
+
+    elif string_parts[0] == "lw":
+        dest_reg = string_parts[1][1:]
+
+        # for source
+        source_reg = string_parts[2]
+        # ofset
+        offset = source_reg.split("(")[0]
+        # base val
+        base_val = source_reg.split("(")[1][:-1]
+        base_val = base_val[1:]
+
+        bin_dst = f"{int(dest_reg):05b}"
+        bin_base = f"{int(base_val):05b}"
+        bin_offset = f"{int(offset):012b}"
+
+        func3 = "010"
+        opcode = "0000011"
+
+        Instruction_binary = bin_offset + bin_base + func3 + bin_dst + opcode
+
+        binary_data[Instruction_number] = Instruction_binary
+
+    elif string_parts[0] == "sw":
+        source_2 = string_parts[1][1:]
+
+        # for source_2
+        source_reg = string_parts[2]
+        # ofset
+        offset = source_reg.split("(")[0]
+
+        # base val
+        base_val = source_reg.split("(")[1][:-1]
+
+        source_1 = base_val[1:]
+
+        bin_src_2 = f"{int(source_2):05b}"
+        bin_src_1 = f"{int(source_1):05b}"
+        bin_offset = f"{int(offset):012b}"
+        bin_imm_1 = bin_offset[:7]
+        bin_imm_2 = bin_offset[7:]
+
+        func3 = "010"
+        opcode = "0100011"
+
+        Instruction_binary = (
+            bin_imm_1 + bin_src_2 + bin_src_1 + func3 + bin_imm_2 + opcode
+        )
+
+        binary_data[Instruction_number] = Instruction_binary
+
+
+with open(binary_instruction_file, "w") as f2:
+    json.dump(binary_data, f2, indent=4)
