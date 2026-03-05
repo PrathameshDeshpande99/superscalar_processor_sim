@@ -1,4 +1,4 @@
-from utils import RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_ex_mem_buffer, create_mem_wb_buffer, create_ex_mem_buffer, create_rf_ex_buffer, bit32, bit8
+from utils import IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5
 
 class Pipeline:
     # objects in the pipeline:
@@ -8,10 +8,15 @@ class Pipeline:
     # MEM_WB_Buffer
 
     def __init__(self):
-        self.IF_RF_Buffer = create_rf_ex_buffer()
+        self.IF_RF_Buffer = create_if_rf_buffer()
         self.RF_EX_Buffer = create_rf_ex_buffer()
         self.EX_MEM_Buffer = create_ex_mem_buffer()
         self.MEM_WB_Buffer = create_mem_wb_buffer()
+
+    def if_stage(self, instructions: list[bit32], pc: int) -> int:
+        self.IF_RF_Buffer["instruction"] = instructions[pc]
+        pc += 1
+        return pc
 
     def rf_stage(self, registers):
 
@@ -41,11 +46,12 @@ class Pipeline:
         A = registers.read(rs1_index)
         B = registers.read(rs2_index)
 
+        self.RF_EX_Buffer["instruction"] = instruction
         self.RF_EX_Buffer["A"] = A
         self.RF_EX_Buffer["B"] = B
-        self.RF_EX_Buffer["rs1"] = rs1_index
-        self.RF_EX_Buffer["rs2"] = rs2_index
-        self.RF_EX_Buffer["rd"] = get_rd_index(instruction)
+        self.RF_EX_Buffer["rs1"] = bit5(rs1_index)
+        self.RF_EX_Buffer["rs2"] = bit5(rs2_index)
+        self.RF_EX_Buffer["rd"] = bit5(get_rd_index(instruction))
 
         opcode = get_opcode(instruction)
         funct3 = get_funct3(instruction)
@@ -133,4 +139,29 @@ class Pipeline:
     def wb_stage(self, registers):
         if self.MEM_WB_Buffer["doWB"]:
             registers.write(self.MEM_WB_Buffer["rd"], self.MEM_WB_Buffer["writeback_value"])
-      
+
+    def hazard_resolution(self, pc: int) -> int:
+        # 1. Check for hazard from the instruction currently in the EX/MEM stage
+        ex_mem_hazard = (
+            self.EX_MEM_Buffer["doWB"] and 
+            self.EX_MEM_Buffer["rd"] != bit5(0) and 
+            (self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs1"] or 
+             self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
+        )
+
+        # 2. Check for hazard from the instruction currently in the MEM/WB stage
+        mem_wb_hazard = (
+            self.MEM_WB_Buffer["doWB"] and 
+            self.MEM_WB_Buffer["rd"] != bit5(0) and 
+            (self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs1"] or 
+             self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
+        )
+
+        if ex_mem_hazard or mem_wb_hazard:
+            # send nop / bubble into the pipeline
+            print("Stall was made")
+            self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
+            self.RF_EX_Buffer = create_rf_ex_buffer()
+            return pc - 1    # refetch the last instruction
+
+        return pc   # if no hazard, continue normal execution

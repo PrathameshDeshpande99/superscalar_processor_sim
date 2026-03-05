@@ -1,5 +1,6 @@
 from cpu import CPU
 from utils import bit32, bit8, bit5
+import json
 
 nop = bit32("00000000000000000000000000010011")
 

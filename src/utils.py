@@ -118,6 +118,13 @@ class bit5:
     def __index__(self):
         return self.value
     
+    def __eq__(self, other):
+        return self.value == other.value
+    
+    def __ne__(self, other):
+        return self.value != other.value
+
+
 # Type definitions for pipeline Buffers
 
 from typing import TypedDict
@@ -126,6 +133,7 @@ class IF_RF_Buffer_Class(TypedDict):
     instruction: bit32
 
 class RF_EX_Buffer_Class(TypedDict):
+    instruction: bit32
     A: bit32
     B: bit32
     rs1: bit5
@@ -165,6 +173,7 @@ def create_if_rf_buffer() -> IF_RF_Buffer_Class:
 
 def create_rf_ex_buffer() -> RF_EX_Buffer_Class:
     return {
+        "instruction": bit32("00000000000000000000000000010011"),
         "A": bit32(0),
         "B": bit32(0),
         "rs1": bit5(0),
