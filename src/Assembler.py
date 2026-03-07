@@ -43,7 +43,7 @@ for Instruction_number in data:
 
         bin_dst = f"{int(dest_reg):05b}"
         bin_base = f"{int(base_val):05b}"
-        bin_imm = f"{int(imm) & 0xFFF:012b}" # need to specify that 0xFFF asa 012b sets the minimum limit not the excat limit 
+        bin_imm = f"{int(imm) & 0xFFF:012b}"  # need to specify that 0xFFF asa 012b sets the minimum limit not the excat limit
 
         func3 = "010"
         opcode = "0000011"
@@ -67,7 +67,7 @@ for Instruction_number in data:
 
         bin_src_2 = f"{int(source_2):05b}"
         bin_src_1 = f"{int(source_1):05b}"
-        bin_offset = f"{int(offset) & 0xFFF:012b}"  # same reason 
+        bin_offset = f"{int(offset) & 0xFFF:012b}"  # same reason
         bin_imm_1 = bin_offset[:7]
         bin_imm_2 = bin_offset[7:]
 
@@ -80,9 +80,7 @@ for Instruction_number in data:
 
         binary_data[Instruction_number] = Instruction_binary
 
-    elif string_parts[0] == "beq":
-
-
+#    elif string_parts[0] == "beq":
 
 
 with open(binary_instruction_file, "w") as f2:
