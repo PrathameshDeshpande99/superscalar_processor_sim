@@ -6,11 +6,24 @@ input_file = "../text_input.txt"
 def convert_asm_to_json(input_file, output_file):
 
     try:
+        data = {}
+        i = 1
+
         with open(input_file, "r") as f:
-            data = {
-                i: line.split("#")[0].replace(",", " ")
-                for i, line in enumerate(f.read().splitlines(), start=1)
-            }
+            for line in f:
+                line = line.split("#")[0].strip().replace(",", " ")
+
+                if ":" in line:
+                    label = line.split(":")[0]
+                    instruction = line.split(":")[1]
+
+                    data[i] = label + ":"
+                    data[i + 1] = instruction
+                    i += 1
+                else:
+                    data[i] = line
+
+                i += 1
 
         with open(output_file, "w") as json_f:
             json.dump(data, json_f, indent=4)
