@@ -77,3 +77,34 @@ def test_raw1():
 
     assert cpu.registers.read(bit5(1)) == bit32(5)
     assert cpu.registers.read(bit5(2)) == bit32(5)
+
+def test_control_haz1():
+    # x1 = 5
+    # x2 = 3
+    # loop:
+    # x3 = x1 + x2
+    # x1 = x1 - 1
+    # if x1 != x0 goto loop
+    # x4 = x3 + x2
+
+    instructions = [
+        bit32("00000000010100000000000010010011"),  # addi x1, x0, 5
+        bit32("00000000001100000000000100010011"),  # addi x2, x0, 3
+        bit32("00000000001000001000000110110011"),  # add x3, x1, x2 (loop target)
+        bit32("11111111111100001000000010010011"),  # addi x1, x1, -1
+        bit32("11111110000000001001100011100011"),  # bne x1, x0, loop (-8 offset)
+        bit32("00000000001000011000001000110011")   # add x4, x3, x2
+    ]
+
+    instructions.append(nop)
+    instructions.append(nop)
+    instructions.append(nop)
+    instructions.append(nop)
+
+    cpu = CPU()
+    cpu.run_program(instructions)
+
+    assert cpu.registers.read(bit5(4)) == bit32(7)
+    assert cpu.registers.read(bit5(3)) == bit32(4)
+    assert cpu.registers.read(bit5(1)) == bit32(0)
+    assert cpu.registers.read(bit5(2)) == bit32(3)

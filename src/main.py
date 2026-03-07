@@ -4,6 +4,7 @@ import json
 
 nop = bit32("00000000000000000000000000010011")
 
+# TODO: blt, bge will still cause problems because less than zero is bigger (we take modulus)
 if __name__ == "__main__":
     # print("Testing for addition")
     # cpu = CPU()
