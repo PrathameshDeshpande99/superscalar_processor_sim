@@ -116,10 +116,10 @@ for Instruction_number in data:
         j = int(Instruction_number)
         offset = 0
         while i >= 1 or j <= len(data):
-            if i >= 1 and data[str(i)] == goto_label + ":":
+            if i >= 1 and (goto_label + ":" in data[str(i)]):
                 offset = i - int(Instruction_number)
                 break
-            elif j <= len(data) and data[str(j)] == goto_label + ":":
+            elif j <= len(data) and (goto_label + ":" in data[str(j)]):
                 offset = j - int(Instruction_number)
                 break
             else:
@@ -132,6 +132,8 @@ for Instruction_number in data:
 
         bin_src_1 = f"{int(source_1):05b}"
         bin_src_2 = f"{int(source_2):05b}"
+        print(bin_src_2)
+        print(source_2)
         bin_offset = f"{int(final_offset) & 0xFFF:012b}"
         bin_imm_1 = bin_offset[0] + bin_offset[2:8]
         bin_imm_2 = bin_offset[8:12] + bin_offset[1]
@@ -163,10 +165,10 @@ for Instruction_number in data:
         offset = 0
 
         while i >= 1 or j <= len(data):
-            if i >= 1 and data[str(i)] == goto_label + ":":
+            if i >= 1 and (goto_label + ":" in data[str(i)]):
                 offset = i - int(Instruction_number)
                 break
-            elif j <= len(data) and data[str(j)] == goto_label + ":":
+            elif j <= len(data) and (goto_label + ":" in data[str(j)]):
                 offset = j - int(Instruction_number)
                 break
             else:
