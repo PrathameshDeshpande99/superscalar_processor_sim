@@ -26,7 +26,7 @@ for Instruction_number in data:
         func7 = "0000000" if string_parts[0] == "add" else "0100000"
         opcode = "0110011"
 
-        Instruction_binary = func7 + bin_src_1 + bin_src_2 + func3 + bin_dst + opcode
+        Instruction_binary = func7 + bin_src_2 + bin_src_1 + func3 + bin_dst + opcode
 
         binary_data[Instruction_number] = Instruction_binary
 
@@ -80,7 +80,93 @@ for Instruction_number in data:
 
         binary_data[Instruction_number] = Instruction_binary
 
-#    elif string_parts[0] == "beq":
+    elif (
+        string_parts[0] == "beq"
+        or string_parts[0] == "bne"
+        or string_parts[0] == "blt"
+        or string_parts[0] == "bge"
+    ):
+        source_1 = string_parts[1][1:]
+        source_2 = string_parts[2][1:]
+
+        goto_label = string_parts[3]
+        i = int(Instruction_number)
+        j = int(Instruction_number)
+        offset = 0
+        while i >= 1 or j <= len(data):
+            if data[str(i)] == goto_label + ":":
+                offset = i - int(Instruction_number) + 1
+                break
+            elif data[str(j)] == goto_label + ":":
+                offset = j - int(Instruction_number) + 1
+                break
+            else:
+                if i > 0:
+                    i -= 1
+                if j < len(data):
+                    j += 1
+
+        final_offset = offset * 4
+
+        bin_src_1 = f"{int(source_1):05b}"
+        bin_src_2 = f"{int(source_2):05b}"
+        bin_offset = f"{int(offset) & 0xFFF:012b}"
+        bin_imm_1 = bin_offset[0] + bin_offset[2:8]
+        bin_imm_2 = bin_offset[8:12] + bin_offset[1]
+
+        func3 = ""
+        if string_parts[0] == "beq":
+            func3 = "000"
+        elif string_parts[0] == "blt":
+            func3 = "100"
+        elif string_parts[0] == "bne":
+            func3 = "001"
+        elif string_parts[0] == "bge":
+            func3 = "101"
+
+        opcode = "1100011"
+
+        Instruction_binary = (
+            bin_imm_1 + bin_src_2 + bin_src_1 + func3 + bin_imm_2 + opcode
+        )
+
+        binary_data[Instruction_number] = Instruction_binary
+
+    elif string_parts[0] == "jal":
+        dest_reg = string_parts[1]
+        goto_label = string_parts[2]
+
+        i = int(Instruction_number)
+        j = int(Instruction_number)
+        offset = 0
+
+        while i >= 1 or j <= len(data):
+            if data[str(i)] == goto_label + ":":
+                offset = i - int(Instruction_number) + 1
+                break
+            elif data[str(j)] == goto_label + ":":
+                offset = j - int(Instruction_number) + 1
+                break
+            else:
+                if i > 0:
+                    i -= 1
+                if j < len(data):
+                    j += 1
+
+        final_offset = offset * 4
+
+        bin_dst = f"{int(dest_reg):05b}"
+        bin_imm = f"{int(final_offset):020b}"
+
+        bin_imm_final = bin_imm[0] + bin_imm[9:] + bin_imm[10] + bin_imm[1:9]
+
+        opcode = "1101111"
+        Instruction_binary = bin_imm_final + bin_dst + opcode
+
+        binary_data[Instruction_number] = Instruction_binary
+
+    else:
+        continue
 
 
 with open(binary_instruction_file, "w") as f2:
