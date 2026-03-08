@@ -52,6 +52,22 @@ for Instruction_number in data:
 
         binary_data[Instruction_number] = Instruction_binary
 
+    elif string_parts[0] == "addi":
+        dest_reg = string_parts[1][1:]
+        source_reg = string_parts[2][1:]
+        imm = string_parts[3]
+
+        bin_dst = f"{int(dest_reg):05b}"
+        bin_src = f"{int(source_reg):05b}"
+        bin_imm = f"{int(imm) & 0xFFF:012b}"
+
+        func3 = "000"
+        opcode = "0010011"
+
+        Instruction_binary = bin_imm + bin_src + func3 + bin_dst + opcode
+
+        binary_data[Instruction_number] = Instruction_binary
+
     elif string_parts[0] == "sw":
         source_2 = string_parts[1][1:]
 
@@ -155,7 +171,6 @@ for Instruction_number in data:
 
         final_offset = offset * 4
 
-        print(final_offset)
         bin_dst = f"{int(dest_reg):05b}"
         bin_imm = f"{int(final_offset) & 0xFFFFF:020b}"
 
