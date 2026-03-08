@@ -132,8 +132,6 @@ for Instruction_number in data:
 
         bin_src_1 = f"{int(source_1):05b}"
         bin_src_2 = f"{int(source_2):05b}"
-        print(bin_src_2)
-        print(source_2)
         bin_offset = f"{int(final_offset) & 0xFFF:012b}"
         bin_imm_1 = bin_offset[0] + bin_offset[2:8]
         bin_imm_2 = bin_offset[8:12] + bin_offset[1]
@@ -182,7 +180,7 @@ for Instruction_number in data:
         bin_dst = f"{int(dest_reg):05b}"
         bin_imm = f"{int(final_offset) & 0xFFFFF:020b}"
 
-        bin_imm_final = bin_imm[0] + bin_imm[9:] + bin_imm[10] + bin_imm[1:9]
+        bin_imm_final = bin_imm[0] + bin_imm[10:] + bin_imm[9] + bin_imm[1:8]
 
         opcode = "1101111"
         Instruction_binary = bin_imm_final + bin_dst + opcode
