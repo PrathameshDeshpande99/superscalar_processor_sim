@@ -94,23 +94,23 @@ for Instruction_number in data:
         j = int(Instruction_number)
         offset = 0
         while i >= 1 or j <= len(data):
-            if data[str(i)] == goto_label + ":":
+            if i >= 1 and data[str(i)] == goto_label + ":":
                 offset = i - int(Instruction_number) + 1
                 break
-            elif data[str(j)] == goto_label + ":":
+            elif j <= len(data) and data[str(j)] == goto_label + ":":
                 offset = j - int(Instruction_number) + 1
                 break
             else:
-                if i > 0:
+                if i >= 1:
                     i -= 1
-                if j < len(data):
+                if j <= len(data):
                     j += 1
 
         final_offset = offset * 4
 
         bin_src_1 = f"{int(source_1):05b}"
         bin_src_2 = f"{int(source_2):05b}"
-        bin_offset = f"{int(offset) & 0xFFF:012b}"
+        bin_offset = f"{int(final_offset) & 0xFFF:012b}"
         bin_imm_1 = bin_offset[0] + bin_offset[2:8]
         bin_imm_2 = bin_offset[8:12] + bin_offset[1]
 
@@ -133,7 +133,7 @@ for Instruction_number in data:
         binary_data[Instruction_number] = Instruction_binary
 
     elif string_parts[0] == "jal":
-        dest_reg = string_parts[1]
+        dest_reg = string_parts[1][1:]
         goto_label = string_parts[2]
 
         i = int(Instruction_number)
@@ -141,22 +141,23 @@ for Instruction_number in data:
         offset = 0
 
         while i >= 1 or j <= len(data):
-            if data[str(i)] == goto_label + ":":
+            if i >= 1 and data[str(i)] == goto_label + ":":
                 offset = i - int(Instruction_number) + 1
                 break
-            elif data[str(j)] == goto_label + ":":
+            elif j <= len(data) and data[str(j)] == goto_label + ":":
                 offset = j - int(Instruction_number) + 1
                 break
             else:
-                if i > 0:
+                if i >= 1:
                     i -= 1
-                if j < len(data):
+                if j <= len(data):
                     j += 1
 
         final_offset = offset * 4
 
+        print(final_offset)
         bin_dst = f"{int(dest_reg):05b}"
-        bin_imm = f"{int(final_offset):020b}"
+        bin_imm = f"{int(final_offset) & 0xFFFFF:020b}"
 
         bin_imm_final = bin_imm[0] + bin_imm[9:] + bin_imm[10] + bin_imm[1:9]
 
