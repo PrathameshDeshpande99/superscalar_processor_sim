@@ -1,13 +1,11 @@
 addi x30, x0, 19        # n = 19
 add  x5,  x0, x0        # i = 0
 
-outer_loop: 
-beq  x5, x30, end       # if i == n -> end
+outer_loop: beq  x5, x30, end       # if i == n -> end
 
 add  x6, x0, x0         # j = 0
 
-inner_loop: 
-beq  x6, x30, outer_loop # if j == n -> next i
+inner_loop: beq  x6, x30, outer_loop # if j == n -> next i
 
 addi x8, x0, 1024
 add  x8, x8, x8         # base address = 2048

@@ -11,6 +11,12 @@ binary_data = {}
 for Instruction_number in data:
     original_string = data[Instruction_number]
 
+    if ":" in original_string:
+        original_string = original_string.split(":")[1]
+
+    if original_string == "":
+        continue
+
     string_parts = original_string.split()
 
     if string_parts[0] == "add" or string_parts[0] == "sub":
@@ -111,10 +117,10 @@ for Instruction_number in data:
         offset = 0
         while i >= 1 or j <= len(data):
             if i >= 1 and data[str(i)] == goto_label + ":":
-                offset = i - int(Instruction_number) + 1
+                offset = i - int(Instruction_number)
                 break
             elif j <= len(data) and data[str(j)] == goto_label + ":":
-                offset = j - int(Instruction_number) + 1
+                offset = j - int(Instruction_number)
                 break
             else:
                 if i >= 1:
@@ -158,10 +164,10 @@ for Instruction_number in data:
 
         while i >= 1 or j <= len(data):
             if i >= 1 and data[str(i)] == goto_label + ":":
-                offset = i - int(Instruction_number) + 1
+                offset = i - int(Instruction_number)
                 break
             elif j <= len(data) and data[str(j)] == goto_label + ":":
-                offset = j - int(Instruction_number) + 1
+                offset = j - int(Instruction_number)
                 break
             else:
                 if i >= 1:
