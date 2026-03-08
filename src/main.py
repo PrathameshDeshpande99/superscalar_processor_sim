@@ -126,7 +126,7 @@ if __name__ == "__main__":
     bubble_sort_instructions.append(nop)
     bubble_sort_instructions.append(nop)
 
-    cpu.run_program(bubble_sort_instructions)
+    instructions_completed, cycles_completed = cpu.run_program(bubble_sort_instructions)
 
     # 3. Verification
     print("Verifying Memory...")
@@ -145,3 +145,7 @@ if __name__ == "__main__":
         print("Bubble Sort test passed")
     else:
         print("Bubble Sort test failed")
+
+    print("Instructions completed: ", instructions_completed)
+    print("Cycles completed: ", cycles_completed)
+    print("IPC: ", instructions_completed / cycles_completed)
