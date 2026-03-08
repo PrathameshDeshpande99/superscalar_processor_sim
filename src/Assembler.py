@@ -112,7 +112,7 @@ for Instruction_number in data:
         bin_src_2 = f"{int(source_2):05b}"
         bin_offset = f"{int(offset) & 0xFFF:012b}"
         bin_imm_1 = bin_offset[0] + bin_offset[2:8]
-        bin_imm_2 = bin_offset[8:] + bin_offset[1]
+        bin_imm_2 = bin_offset[8:12] + bin_offset[1]
 
         func3 = ""
         if string_parts[0] == "beq":
