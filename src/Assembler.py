@@ -180,7 +180,7 @@ for Instruction_number in data:
         bin_dst = f"{int(dest_reg):05b}"
         bin_imm = f"{int(final_offset) & 0xFFFFF:020b}"
 
-        bin_imm_final = bin_imm[0] + bin_imm[10:] + bin_imm[9] + bin_imm[1:8]
+        bin_imm_final = bin_imm[0] + bin_imm[10:] + bin_imm[9] + bin_imm[1:9]
 
         opcode = "1101111"
         Instruction_binary = bin_imm_final + bin_dst + opcode
