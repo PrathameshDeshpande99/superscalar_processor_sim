@@ -132,6 +132,39 @@ for Instruction_number in data:
 
         binary_data[Instruction_number] = Instruction_binary
 
+    elif string_parts[0] == "jal":
+        dest_reg = string_parts[1]
+        goto_label = string_parts[2]
+
+        i = int(Instruction_number)
+        j = int(Instruction_number)
+        offset = 0
+
+        while i >= 1 or j <= len(data):
+            if data[str(i)] == goto_label + ":":
+                offset = i - int(Instruction_number) + 1
+                break
+            elif data[str(j)] == goto_label + ":":
+                offset = j - int(Instruction_number) + 1
+                break
+            else:
+                if i > 0:
+                    i -= 1
+                if j < len(data):
+                    j += 1
+
+        final_offset = offset * 4
+
+        bin_dst = f"{int(dest_reg):05b}"
+        bin_imm = f"{int(final_offset):020b}"
+
+        bin_imm_final = bin_imm[0] + bin_imm[9:] + bin_imm[10] + bin_imm[1:9]
+
+        opcode = "1101111"
+        Instruction_binary = bin_imm_final + bin_dst + opcode
+
+        binary_data[Instruction_number] = Instruction_binary
+
     else:
         continue
 
