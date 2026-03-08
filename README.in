@@ -9,7 +9,7 @@ ISA: RV-32I
 ## Date-8/2/2026
 
 - Discussion:
--- We decide that we won't be following the exact way for SB and J type instructions where the immediate value is of 13 and 21 bits respectively in RISC-V which is very confusing where they are ignoring the end 0, and considering values from 12-1 so instead we made our immediate of 12 and 20 bits respectively and we are considering all the bits from 11 to 0 of the offset value 
+-- We decide that we won't be following the exact way for SB and J type instructions where the immediate value is of 13 and 21 bits respectively in RISC-V which is very confusing where they are ignoring the end 0, and considering values from 12-1 so instead we made our immediate of 12 and 20 bits respectively and we are considering all the bits from 11 to 0 of the offset value. Fixed one more critical bug in branch switching.
 
 
 ## Date- 22/2/2026 
@@ -22,4 +22,9 @@ ISA: RV-32I
 
 - Discussion: 
 -- 
+
 ## Date- 16/2/2026
+
+- Discussion: 
+-- We split our work and decided who will work on what, earlier we decided that Prathaemsh will take care of Assembler, IF, WB and Sarang will take care of ID/RF, EXE, ME, but later sarang proposed that he wants to take IF and WB himself, Prathamesh was ok with it but he always told sarang if he is overwhelmed by the work he can always give some more work to Prathamesh to which he used to reply my main work will come in phase 2...
+
