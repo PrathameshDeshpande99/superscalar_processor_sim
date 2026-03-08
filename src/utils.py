@@ -42,6 +42,9 @@ class bit32:
 
     def __eq__(self, other):
         return self.value == other.value
+
+    def __str__(self):
+        return format(self.value, '032b')
     
 class bit8:
     def __init__(self, value: int | str | bit32 | bit5):

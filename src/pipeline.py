@@ -1,6 +1,8 @@
 from utils import IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5, bin_to_signed
 from alu import ALU
 
+from processor_config import DATA_FORWARDING_ENABLED
+
 class Pipeline:
     # objects in the pipeline:
     # IF_RF_Buffer
@@ -20,6 +22,20 @@ class Pipeline:
         return pc
 
     def rf_stage(self, registers):
+
+        """
+            Supported instructions are:
+            - add
+            - sub
+            - addi
+            - lw
+            - sw
+            - beq
+            - bne
+            - blt
+            - bge
+            - jal
+        """
 
         instruction = self.IF_RF_Buffer["instruction"]
 
@@ -58,8 +74,20 @@ class Pipeline:
         funct3 = get_funct3(instruction)
         funct7 = get_funct7(instruction)
 
-        # if branch instructions
-        if opcode == 0b1100011:
+        # unconditional branch
+        if opcode == 0b1101111:
+            print("Branch taken")
+            instruction_str = format(instruction.value, '032b')
+            immediate_str = instruction_str[0] + instruction_str[12: 20] + instruction_str[11] + instruction_str[1: 11]
+            immediate = bin_to_signed(immediate_str)
+            print("Immediate string: ", immediate_str)
+            print("Immediate value: ", immediate)
+
+            self.RF_EX_Buffer["isBranchTaken"] = True
+            self.RF_EX_Buffer["branch_offset"] = (immediate >> 2)  # divide by 4 because each instruction is 4 bytes
+
+        # conditional branch
+        elif opcode == 0b1100011:
             instruction_str = format(instruction.value, '032b')
             immediate_str = instruction_str[0] + instruction_str[24] + instruction_str[1:7] + instruction_str[20:24]
             immediate = bin_to_signed(immediate_str)
@@ -69,15 +97,18 @@ class Pipeline:
             branch_taken = False
             if funct3 == 0b000:     # beq case
                 if A == B:
+                    print("BEQ was taken")
                     branch_taken = True
             elif funct3 == 0b001:   # bne case
                 if A != B:
                     branch_taken = True
             elif funct3 == 0b100:   # blt case
-                if A < B:
+                signedA, signedB = bin_to_signed(str(A)), bin_to_signed(str(B))
+                if signedA < signedB:
                     branch_taken = True
             elif funct3 == 0b101:   # bge case
-                if A >= B:
+                signedA, signedB = bin_to_signed(str(A)), bin_to_signed(str(B))
+                if signedA >= signedB:
                     branch_taken = True
 
             if not branch_taken:
@@ -86,29 +117,33 @@ class Pipeline:
             else:       # branch taken
                 self.RF_EX_Buffer["isBranchTaken"] = True
                 self.RF_EX_Buffer["branch_offset"] = (immediate >> 2)  # divide by 4 because each instruction is 4 bytes
-            
         else:
-            isAdd = (opcode == 0b0110011 and funct3 == 0b000 and funct7 == 0b0000000)
-            isSub = (opcode == 0b0110011 and funct3 == 0b000 and funct7 == 0b0100000)
+            self.RF_EX_Buffer["isBranchTaken"] = False    
+        
+        isAdd = (opcode == 0b0110011 and funct3 == 0b000 and funct7 == 0b0000000)
+        isSub = (opcode == 0b0110011 and funct3 == 0b000 and funct7 == 0b0100000)
 
-            isLd = (opcode == 0b0000011)
-            isSt = (opcode == 0b0100011)
+        isLd = (opcode == 0b0000011)
+        isSt = (opcode == 0b0100011)
 
-            isAddi = (opcode == 0b0010011 and funct3 == 0b000)
+        isAddi = (opcode == 0b0010011 and funct3 == 0b000)
 
-            doWB = isAdd or isSub or isLd or isAddi
+        doWB = isAdd or isSub or isLd or isAddi
 
-            isAdd = isAdd or isAddi
-            isImm = isAddi or isLd
+        isAdd = isAdd or isAddi
+        isImm = isAddi or isLd
 
-            self.RF_EX_Buffer["funct7"] = funct7
-            self.RF_EX_Buffer["isAdd"] = isAdd
-            self.RF_EX_Buffer["isSub"] = isSub
-            self.RF_EX_Buffer["isImm"] = isImm
-            self.RF_EX_Buffer["isLd"] = isLd
-            self.RF_EX_Buffer["isSt"] = isSt
-            self.RF_EX_Buffer["doWB"] = doWB
-            self.RF_EX_Buffer["isBranchTaken"] = False
+        self.RF_EX_Buffer["funct7"] = funct7
+        self.RF_EX_Buffer["isAdd"] = isAdd
+        self.RF_EX_Buffer["isSub"] = isSub
+        self.RF_EX_Buffer["isImm"] = isImm
+        self.RF_EX_Buffer["isLd"] = isLd
+        self.RF_EX_Buffer["isSt"] = isSt
+        self.RF_EX_Buffer["doWB"] = doWB
+
+        # rd should be x0 in case of store instructions, to prevent unnecessary data hazards
+        if isSt:
+            self.RF_EX_Buffer["rd"] = bit5(0)
 
     def ex_stage(self, alu: ALU):
         def input_resolve() -> tuple[bit32, bit32]:
@@ -147,20 +182,10 @@ class Pipeline:
 
     def mem_stage(self, memory):
         if self.EX_MEM_Buffer["isLd"]:
-            return_value = bit32(0)
-
-            return_value += bit32(memory.read(self.EX_MEM_Buffer["alu_result"])) << 24
-            return_value += bit32(memory.read(self.EX_MEM_Buffer["alu_result"] + bit32(1))) << 16
-            return_value += bit32(memory.read(self.EX_MEM_Buffer["alu_result"] + bit32(2))) << 8
-            return_value += bit32(memory.read(self.EX_MEM_Buffer["alu_result"] + bit32(3)))
-
-            self.MEM_WB_Buffer["writeback_value"] = return_value
+            self.MEM_WB_Buffer["writeback_value"] = memory.read_word(self.EX_MEM_Buffer["alu_result"])
 
         elif self.EX_MEM_Buffer["isSt"]:
-            memory.write(self.EX_MEM_Buffer["alu_result"], bit8(self.EX_MEM_Buffer["rs2_value"] >> 24))
-            memory.write(self.EX_MEM_Buffer["alu_result"] + bit32(1), bit8(self.EX_MEM_Buffer["rs2_value"] >> 16))
-            memory.write(self.EX_MEM_Buffer["alu_result"] + bit32(2), bit8(self.EX_MEM_Buffer["rs2_value"] >> 8))
-            memory.write(self.EX_MEM_Buffer["alu_result"] + bit32(3), bit8(self.EX_MEM_Buffer["rs2_value"]))
+            memory.write_word(self.EX_MEM_Buffer["alu_result"], self.EX_MEM_Buffer["rs2_value"])
 
         else:
             self.MEM_WB_Buffer["writeback_value"] = self.EX_MEM_Buffer["alu_result"]
@@ -194,12 +219,37 @@ class Pipeline:
              self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
         )
 
-        if ex_mem_hazard or mem_wb_hazard:
-            # send nop / bubble into the pipeline
-            print("Stall due to data hazard")
-            self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
-            self.RF_EX_Buffer = create_rf_ex_buffer()
-            return pc - 1    # refetch the last instruction
+        if DATA_FORWARDING_ENABLED:
+            if ex_mem_hazard and self.EX_MEM_Buffer["isLd"]:
+                # give a stall
+                print("Stall due to data hazard")
+                self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
+                self.RF_EX_Buffer = create_rf_ex_buffer()
+                return pc - 1    # refetch the last instruction
+
+            elif ex_mem_hazard:
+                # data forwarding
+                print("Data forwarding EX->EX")
+                if self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs1"]:
+                    self.RF_EX_Buffer["A"] = self.EX_MEM_Buffer["alu_result"]
+                if self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs2"]:
+                    self.RF_EX_Buffer["B"] = self.EX_MEM_Buffer["alu_result"]
+
+            elif mem_wb_hazard:
+                # data forwarding
+                print("Data forwarding MEM->EX")
+                if self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs1"]:
+                    self.RF_EX_Buffer["A"] = self.MEM_WB_Buffer["writeback_value"]
+                if self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"]:
+                    self.RF_EX_Buffer["B"] = self.MEM_WB_Buffer["writeback_value"]
+
+        else:   # DATA_FORWARDING_ENABLED = False
+            if ex_mem_hazard or mem_wb_hazard:
+                # send nop / bubble into the pipeline
+                print("Stall due to data hazard")
+                self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
+                self.RF_EX_Buffer = create_rf_ex_buffer()
+                return pc - 1    # refetch the last instruction
 
         
         # CONTROL HAZARDS:
