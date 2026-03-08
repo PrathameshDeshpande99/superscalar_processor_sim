@@ -1,7 +1,25 @@
-The greatest simulator for RISC-V Superscalar processors that you can find.
+## Arguably The greatest simulator for RISC-V Superscalar processors that you can find.
 
 ISA: RV-32I
 
-Contributors:
-1. Prathamesh Deshpande
-2. Sarang Mittal
+### Contributors (same for all dates):
+- 1. Prathamesh Vijay Deshpande
+- 2. Sarang Mittal
+
+## Date-8/2/2026
+
+- Discussion:
+-- We decide that we won't be following the exact way for SB and J type instructions where the immediate value is of 13 and 21 bits respectively in RISC-V which is very confusing where they are ignoring the end 0, and considering values from 12-1 so instead we made our immediate of 12 and 20 bits respectively and we are considering all the bits from 11 to 0 of the offset value 
+
+
+## Date- 22/2/2026 
+
+-Discussion: 
+-- Machine is BIG ENDIAN 
+
+
+## Date- 27/2/2026
+
+- Discussion: 
+-- 
+## Date- 16/2/2026

@@ -16,6 +16,7 @@ def convert_asm_to_json(input_file, output_file):
                 if line == "":
                     continue
 
+                """
                 if ":" in line:
                     label = line.split(":")[0]
                     instruction = (
@@ -27,7 +28,8 @@ def convert_asm_to_json(input_file, output_file):
                         data[i + 1] = instruction
                         i += 1
                 else:
-                    data[i] = line
+                """
+                data[i] = line
 
                 i += 1
 
