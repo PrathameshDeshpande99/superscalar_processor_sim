@@ -1,7 +1,7 @@
 import json
 
-json_file = "../json_input.json"
-binary_instruction_file = "../binary_input.json"
+json_file = "json_input.json"
+binary_instruction_file = "binary_input.json"
 
 with open(json_file, "r") as f:
     data = json.load(f)

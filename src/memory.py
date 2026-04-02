@@ -14,3 +14,30 @@ class Memory:
         assert bit32(0) <= address < bit32(self.size), "Memory write out of bounds"
 
         self.data[address] = value
+
+    def read_word(self, address: bit32) -> bit32:
+        assert bit32(0) <= address and (address + bit32(3)) < bit32(self.size), "Memory read out of bounds"
+        
+        byte1 = self.read(address)
+        byte2 = self.read(address + bit32(1))
+        byte3 = self.read(address + bit32(2))
+        byte4 = self.read(address + bit32(3))
+
+        return bit32(byte1.value << 24 | byte2.value << 16 | byte3.value << 8 | byte4.value)
+
+    def write_word(self, address: bit32, value: bit32):
+        assert bit32(0) <= address and (address + bit32(3)) < bit32(self.size), "Memory read out of bounds"
+        print("Memory before write: ")
+        self.print_memory()
+        self.write(address, bit8(value.value >> 24))
+        self.write(address + bit32(1), bit8(value.value >> 16))
+        self.write(address + bit32(2), bit8(value.value >> 8))
+        self.write(address + bit32(3), bit8(value.value))
+        print("Memory after write: ")
+        self.print_memory()
+
+    def print_memory(self):
+        # base address = 2048
+        # print 20 words after 2048
+        for i in range(2048, 2048 + 20 * 4, 4):
+            print(f"Address {i}: {self.read_word(bit32(i)).value}")

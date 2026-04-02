@@ -1,6 +1,6 @@
 import json
 
-input_file = "../text_input.txt"
+input_file = "text_input.txt"
 
 
 def convert_asm_to_json(input_file, output_file):
@@ -43,4 +43,4 @@ def convert_asm_to_json(input_file, output_file):
 
 
 # Usage
-convert_asm_to_json(input_file, "../json_input.json")
+convert_asm_to_json(input_file, "json_input.json")
