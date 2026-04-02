@@ -1,0 +1,11 @@
+# Test Control Hazard with loop and branch
+# Initialize: x1 = 5, x2 = 3
+# Loop: x3 = x1 + x2, x1 = x1 - 1, if x1 != 0 loop
+# After loop: x4 = x3 + x2
+# Expected: x4 = 7, x3 = 4, x1 = 0, x2 = 3
+addi x1, x0, 5
+addi x2, x0, 3
+loop: add x3, x1, x2
+addi x1, x1, -1
+bne x1, x0, loop
+add x4, x3, x2

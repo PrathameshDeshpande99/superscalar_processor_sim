@@ -1,0 +1,5 @@
+# Test RAW (Read After Write) hazard
+# addi x1, x0, 5  -> x1 = 5
+# add x2, x1, x3  -> x2 = x1 + x3 = 5 + 0 = 5
+addi x1, x0, 5
+add x2, x1, x3

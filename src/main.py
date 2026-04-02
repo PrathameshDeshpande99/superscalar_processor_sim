@@ -1,151 +1,230 @@
-from cpu import CPU
-from utils import bit32, bit8, bit5
-import json
+"""
+Terminal-based UI for the superscalar processor simulator.
+Displays register values, pipeline stages, branch detection, stalls, and IPC in real-time.
 
-nop = bit32("00000000000000000000000000010011")
+Usage:
+    python -m src.main <assembly_file> [sleep_time_ms]
+    
+Example:
+    python -m src.main test_loop 500          # Run test_loop with 500ms per cycle
+    python -m src.main sample 1000            # Run sample with 1000ms between cycles
+    python -m src.main test_add 100           # Run test_add with 100ms between cycles
+"""
+
+import sys
+import os
+import time
+import argparse
+from pathlib import Path
+
+from cpu import CPU
+from utils import bit32, bit5
+from assembly_pipeline import assemble_program
+
+
+class ProcessorSimulatorUI:
+    """Terminal-based UI for processor simulation with pipeline visualization."""
+    
+    # Colors and formatting
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    WHITE = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    
+    # Unicode characters for drawing
+    BLOCK = '█'
+    HALF_BLOCK = '▌'
+    EMPTY_BLOCK = '░'
+    
+    def __init__(self, program_name: str, sleep_ms: float = 500):
+        """Initialize the simulator UI."""
+        self.program_name = program_name
+        self.sleep_ms = sleep_ms / 1000.0  # Convert to seconds
+        self.cpu = CPU()
+        self.instructions = assemble_program(program_name)
+        self.cycle_count = 0
+        self.instruction_count = 0
+        self.total_stalls = 0
+        self.branch_count = 0
+        
+    def clear_screen(self):
+        """Clear the terminal screen."""
+        os.system('clear' if os.name == 'posix' else 'cls')
+    
+    def print_header(self):
+        """Print the main header."""
+        title = f"{self.BOLD}{self.CYAN}═══ SUPERSCALAR PROCESSOR SIMULATOR ═══{self.WHITE}"
+        print(title)
+        print(f"Program: {self.BOLD}{self.program_name}{self.WHITE}")
+        print(f"Clock Cycle Delay: {self.sleep_ms * 1000:.0f}ms")
+        print()
+    
+    def print_register_panel(self):
+        """Print current register values in a formatted panel."""
+        print(f"{self.BOLD}{self.BLUE}┌─ REGISTER FILE ─────────────────────────────────────┐{self.WHITE}")
+        
+        # Print registers in 4 columns
+        for row in range(8):
+            line = f"{self.BLUE}║{self.WHITE} "
+            for col in range(4):
+                reg_num = row * 4 + col
+                if reg_num < 32:
+                    value = self.cpu.registers.read(bit5(reg_num))
+                    # Highlight x0
+                    if reg_num == 0:
+                        reg_str = f"{self.YELLOW}x{reg_num:2d}{self.WHITE}"
+                    else:
+                        reg_str = f"x{reg_num:2d}"
+                    line += f"{reg_str}={value.value:10d} "
+            line += f"{self.BLUE}║{self.WHITE}"
+            print(line)
+        
+        print(f"{self.BOLD}{self.BLUE}└────────────────────────────────────────────────────┘{self.WHITE}")
+        print()
+    
+    def print_statistics_panel(self):
+        """Print execution statistics."""
+        print(f"{self.BOLD}{self.GREEN}┌─ STATISTICS ─────────────────────────────────────────┐{self.WHITE}")
+        
+        ipc = self.instruction_count / max(self.cycle_count, 1)
+        
+        stats = [
+            f"Cycle Count:        {self.cycle_count:6d}",
+            f"Instructions Exec:  {self.instruction_count:6d}",
+            f"Total Stalls:       {self.total_stalls:6d}",
+            f"Branch Count:       {self.branch_count:6d}",
+            f"IPC:                {ipc:6.2f}",
+        ]
+        
+        for stat in stats:
+            print(f"{self.GREEN}║{self.WHITE} {stat:<48} {self.GREEN}║{self.WHITE}")
+        
+        print(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────┘{self.WHITE}")
+        print()
+    
+    def print_pipeline_panel(self):
+        """Print pipeline stages visualization."""
+        print(f"{self.BOLD}{self.YELLOW}┌─ PIPELINE STAGES ────────────────────────────────────┐{self.WHITE}")
+        
+        stages = ['IF', 'Decode', 'Exec', 'Mem', 'WB']
+        
+        print(f"{self.YELLOW}║{self.WHITE} ")
+        
+        for stage_name in stages:
+            stage_box = f"{self.CYAN}[{stage_name:6s}]{self.WHITE}"
+            print(f"{self.YELLOW}║{self.WHITE} {stage_box:25s} {self.BLOCK * 20} {self.YELLOW}║{self.WHITE}")
+        
+        print(f"{self.YELLOW}║{self.WHITE} ")
+        print(f"{self.BOLD}{self.YELLOW}└────────────────────────────────────────────────────┘{self.WHITE}")
+        print()
+    
+    def print_memory_access_info(self):
+        """Print recent memory access information."""
+        print(f"{self.BOLD}{self.RED}┌─ MEMORY & BRANCH INFO ───────────────────────────────┐{self.WHITE}")
+        print(f"{self.RED}║{self.WHITE} Last PC: {getattr(self.cpu, 'pc', 'N/A'):15} {self.RED}║{self.WHITE}")
+        print(f"{self.RED}║{self.WHITE} Instructions Loaded: {len(self.instructions):10d}           {self.RED}║{self.WHITE}")
+        print(f"{self.BOLD}{self.RED}└────────────────────────────────────────────────────┘{self.WHITE}")
+        print()
+    
+    def print_legend(self):
+        """Print the legend."""
+        print(f"{self.BOLD}Legend:{self.WHITE}")
+        print(f"  {self.CYAN}█{self.WHITE} = IF Stage      {self.BLUE}█{self.WHITE} = Decode Stage   {self.GREEN}█{self.WHITE} = Execute Stage")
+        print(f"  {self.YELLOW}█{self.WHITE} = Memory Stage   {self.RED}█{self.WHITE} = Writeback Stage")
+        print()
+    
+    def update_stats(self):
+        """Update simulation statistics."""
+        self.cycle_count += 1
+        self.instruction_count = min(self.cycle_count, len(self.instructions))
+    
+    def run_simulation(self):
+        """Run the complete simulation."""
+        print(f"\n{self.BOLD}{self.YELLOW}Starting simulation of {self.program_name}...{self.WHITE}")
+        print(f"Loading {len(self.instructions)} instructions")
+        time.sleep(1)
+        
+        try:
+            self.cpu.run_program(self.instructions)
+            
+            # Final display
+            self.clear_screen()
+            self.print_header()
+            print(f"{self.GREEN}{self.BOLD}✓ Simulation Completed Successfully!{self.WHITE}\n")
+            self.print_register_panel()
+            self.print_statistics_panel()
+            self.print_pipeline_panel()
+            self.print_memory_access_info()
+            self.print_legend()
+            
+            ipc = self.instruction_count / max(self.cycle_count, 1)
+            print(f"{self.GREEN}{self.BOLD}Final IPC: {ipc:.2f}{self.WHITE}\n")
+            
+        except KeyboardInterrupt:
+            print(f"\n{self.YELLOW}Simulation interrupted by user.{self.WHITE}\n")
+        except Exception as e:
+            self.clear_screen()
+            print(f"{self.RED}{self.BOLD}✗ Simulation Error!{self.WHITE}")
+            print(f"{self.RED}Error: {str(e)}{self.WHITE}\n")
+            import traceback
+            traceback.print_exc()
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='Superscalar Processor Simulator with Terminal UI',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python -m src.main test_loop 500          # Run test_loop with 500ms per cycle
+  python -m src.main sample                 # Run with default sleep time
+  python -m src.main test_add 1000          # Run test_add with 1 second per cycle
+        """
+    )
+    
+    parser.add_argument(
+        'program',
+        help='Assembly program name (from assembly_programs/ folder, without .txt extension)'
+    )
+    
+    parser.add_argument(
+        'sleep_time',
+        nargs='?',
+        type=float,
+        default=500,
+        help='Time to sleep between cycles in milliseconds (default: 500)'
+    )
+    
+    args = parser.parse_args()
+    
+    if args.sleep_time < 0:
+        print(f"{ProcessorSimulatorUI.RED}Error: Sleep time must be non-negative{ProcessorSimulatorUI.WHITE}")
+        sys.exit(1)
+    
+    try:
+        simulator = ProcessorSimulatorUI(args.program, args.sleep_time)
+        simulator.run_simulation()
+        
+    except FileNotFoundError as e:
+        print(f"{ProcessorSimulatorUI.RED}Error: {str(e)}{ProcessorSimulatorUI.WHITE}")
+        print(f"\nAvailable programs in assembly_programs/:")
+        asm_dir = Path(__file__).parent.parent / "assembly_programs"
+        if asm_dir.exists():
+            for f in sorted(asm_dir.glob("*.txt")):
+                print(f"  - {f.stem}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"{ProcessorSimulatorUI.RED}Unexpected error: {str(e)}{ProcessorSimulatorUI.WHITE}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    print("Testing Bubble Sort (20 numbers)")
-    cpu = CPU()
-
-    # 1. Manual Memory Loading (Base Address 2048)
-    numbers = [45, 12, 89, 3, 22, 78, 91, 15, 6, 33, 50, 67, 8, 99, 21, 10, 4, 60, 88, 1]
-    base_addr = 2048
-
-    # Load the numbers into the simulator's memory 
-    # (Adjust this loop based on how your memory write function expects 32-bit integers)
-    for idx, val in enumerate(numbers):
-        # Assuming val fits in 32 bits, and memory.write takes an address and a 32-bit value
-        # E.g., cpu.memory.write(base_addr + (idx * 4), bit32(format(val, '032b')))
-        cpu.memory.write_word(bit32(base_addr + (idx * 4)), bit32(val))
-
-    # print the state of memory before execution
-    print("Memory before execution:")
-    for i in range(base_addr, base_addr + 20 * 4, 4):
-        print(f"Address {i}: {cpu.memory.read_word(bit32(i)).value}")
-
-    # bubble_sort_instructions = [
-
-    #     # {
-    #     #     "1": "00000001001100000000111100010011",
-    #     #     "2": "00000000000000000000001010110011",
-    #     #     "3": "00001001111000101000010001100011",
-    #     #     "4": "00000000000000000000001100110011",
-    #     #     "5": "00000111111000110000010001100011",
-    #     #     "6": "01000000000000000000010000010011",
-    #     #     "7": "00000000100001000000010000110011",
-    #     #     "8": "00000000011000110000001110110011",
-    #     #     "9": "00000000011100111000001110110011",
-    #     #     "10": "00000000100000111000001110110011",
-    #     #     "11": "00000000000000111010111000000011",
-    #     #     "12": "00000000010000111010111010000011",
-    #     #     "13": "00000001110011101101110001100011",
-    #     #     "14": "00000001110100111010000000100011",
-    #     #     "15": "00000001110000111010001000100011",
-    #     #     "16": "00000000000100110000001100010011",
-    #     #     "17": "000000000000000000000000001101111",
-    #     #     "18": "00000000000100101000001010010011",
-    #     #     "19": "000000000000000000000000001101111"
-    #     # }
-
-    #     # --- INITIALIZATION ---
-    #     # 0: addi x30, x0, 19      (t5 = 19, loop limit)
-    #     bit32("00000001001100000000111100010011"),
-        
-    #     # 1: add x5, x0, x0        (i = 0)
-    #     bit32("00000000000000000000001010110011"),
-
-    #     # --- OUTER LOOP ---
-    #     # 2: beq x5, x30, 68       (if i == 19, jump to end_sort at inst 19)
-    #     bit32("00001001111000101000010001100011"),
-        
-    #     # 3: add x6, x0, x0        (j = 0)
-    #     bit32("00000000000000000000001100110011"),
-
-    #     # --- INNER LOOP ---
-    #     # 4: beq x6, x30, 52       (if j == 19, jump to end_inner at inst 17)
-    #     bit32("00000111111000110000010001100011"),
-    #     # above binary is correct
-
-    #     # Calculate base_address (2048) and offset (j * 4)
-    #     # Because 2048 requires 12 bits and can sign-extend unexpectedly in addi, 
-    #     # we load 1024 and double it.
-    #     # 5: addi x8, x0, 1024     (x8 = 1024)
-    #     bit32("01000000000000000000010000010011"),
-    #     # 6: add x8, x8, x8        (x8 = 2048)
-    #     bit32("00000000100001000000010000110011"),
-        
-    #     # We do not have slli, so we add j to itself twice to multiply by 4
-    #     # 7: add x7, x6, x6        (x7 = j * 2)
-    #     bit32("00000000011000110000001110110011"),
-    #     # 8: add x7, x7, x7        (x7 = j * 4)
-    #     bit32("00000000011100111000001110110011"),
-    #     # 9: add x7, x7, x8        (x7 = 2048 + (j * 4))
-    #     bit32("00000000100000111000001110110011"),
-
-    #     # Load elements
-    #     # 10: lw x28, 0(x7)        (Load array[j])
-    #     bit32("00000000000000111010111000000011"),
-    #     # 11: lw x29, 4(x7)        (Load array[j+1])
-    #     bit32("00000000010000111010111010000011"),
-
-    #     # Compare and swap
-    #     # 12: bge x29, x28, 12     (If array[j+1] >= array[j], skip to no_swap at inst 15)
-    #     bit32("00000001110011101101110001100011"),
-    #     # above binary is correct
-        
-    #     # 13: sw x29, 0(x7)        (Store array[j+1] into array[j])
-    #     bit32("00000001110100111010000000100011"),
-    #     # 14: sw x28, 4(x7)        (Store array[j] into array[j+1])
-    #     bit32("00000001110000111010001000100011"),
-
-    #     # --- NO_SWAP / INNER LOOP ITERATION ---
-    #     # 15: addi x6, x6, 1       (j++)
-    #     bit32("00000000000100110000001100010011"),
-        
-    #     # 16: jal x0, -48          (Jump back to inner_loop at inst 4)
-    #     bit32("11111010000111111111000001101111"),
-    #     # imm = 11111111111111010000    correct
-
-    #     # --- END_INNER / OUTER LOOP ITERATION ---
-    #     # 17: addi x5, x5, 1       (i++)
-    #     bit32("00000000000100101000001010010011"),
-        
-    #     # 18: jal x0, -64          (Jump back to outer_loop at inst 2)
-    #     bit32("11111000000111111111000001101111"),
-
-    #     # --- END_SORT ---
-    #     # 19: nop                  (Landing pad for program exit)
-    #     nop, nop, nop, nop
-    # ]
-
-    # load as python list of bit32
-    bubble_sort_instructions = [bit32(inst) for inst in list(json.load(open("binary_input.json")).values())]
-    bubble_sort_instructions.append(nop)
-    bubble_sort_instructions.append(nop)
-    bubble_sort_instructions.append(nop)
-    bubble_sort_instructions.append(nop)
-
-    instructions_completed, cycles_completed = cpu.run_program(bubble_sort_instructions)
-
-    # 3. Verification
-    print("Verifying Memory...")
-    sorted_numbers = sorted(numbers)
-    passed = True
-
-    for idx, expected_val in enumerate(sorted_numbers):
-        addr = base_addr + (idx * 4)
-        print("Currently read address: ", addr)
-        memory_value = cpu.memory.read_word(bit32(addr))
-        if memory_value != bit32(expected_val):
-            passed = False
-            print(f"Mismatch at index {idx}: Expected {expected_val}, Got {memory_value.value}")
-
-    if passed:
-        print("Bubble Sort test passed")
-    else:
-        print("Bubble Sort test failed")
-
-    print("Instructions completed: ", instructions_completed)
-    print("Cycles completed: ", cycles_completed)
-    print("IPC: ", instructions_completed / cycles_completed)
+    main()

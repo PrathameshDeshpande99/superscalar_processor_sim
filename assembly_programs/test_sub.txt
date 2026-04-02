@@ -1,0 +1,5 @@
+# Test SUB instruction
+# x1 = x2 - x3
+# Initial: x2 = 10, x3 = 5
+# Expected: x1 = 5
+sub x1, x2, x3

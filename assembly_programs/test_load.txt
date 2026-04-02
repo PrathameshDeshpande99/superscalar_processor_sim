@@ -1,0 +1,5 @@
+# Test LW (Load Word) instruction
+# x3 = memory[x2 + 0]
+# Initial: x2 = 2048, memory[2048-2051] = 01010101
+# Expected: x3 = 0x55555555
+lw x3, 0(x2)

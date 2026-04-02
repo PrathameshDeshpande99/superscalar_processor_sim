@@ -1,0 +1,5 @@
+# Test SW (Store Word) instruction
+# memory[x2 + 0] = x4
+# Initial: x2 = 2048, x4 = 0x55555555
+# Expected: memory[2048-2051] = 01010101
+sw x4, 0(x2)
