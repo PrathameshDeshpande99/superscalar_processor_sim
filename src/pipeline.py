@@ -16,10 +16,22 @@ class Pipeline:
         self.EX_MEM_Buffer = create_ex_mem_buffer()
         self.MEM_WB_Buffer = create_mem_wb_buffer()
 
-    def if_stage(self, instructions: list[bit32], pc: int) -> int:
+    def if_stage(self, instructions: list[bit32], pc: int, l1i, l2) -> int:
         self.IF_RF_Buffer["instruction"] = instructions[pc]
-        pc += 1
-        return pc
+        
+        # Cache lookup for IF
+        address = pc * 4 # Assume each instruction is 4 bytes
+        hit, latency = l1i.access(address)
+        if not hit:
+            l1i.update_after_miss(address)
+            l2_hit, l2_latency = l2.access(address)
+            latency += l2_latency
+            if not l2_hit:
+                l2.update_after_miss(address)
+                from processor_config import MAIN_MEMORY_LATENCY
+                latency += MAIN_MEMORY_LATENCY
+        
+        return latency
 
     def rf_stage(self, registers):
 
@@ -180,12 +192,37 @@ class Pipeline:
         Note: Machine is Big Endian
     """
 
-    def mem_stage(self, memory):
+    def mem_stage(self, memory, l1d, l2):
+        latency = 0
         if self.EX_MEM_Buffer["isLd"]:
+            address = self.EX_MEM_Buffer["alu_result"].value
             self.MEM_WB_Buffer["writeback_value"] = memory.read_word(self.EX_MEM_Buffer["alu_result"])
+            
+            # Cache lookup for Data Load
+            hit, latency = l1d.access(address)
+            if not hit:
+                l1d.update_after_miss(address)
+                l2_hit, l2_latency = l2.access(address)
+                latency += l2_latency
+                if not l2_hit:
+                    l2.update_after_miss(address)
+                    from processor_config import MAIN_MEMORY_LATENCY
+                    latency += MAIN_MEMORY_LATENCY
 
         elif self.EX_MEM_Buffer["isSt"]:
+            address = self.EX_MEM_Buffer["alu_result"].value
             memory.write_word(self.EX_MEM_Buffer["alu_result"], self.EX_MEM_Buffer["rs2_value"])
+            
+            # Cache lookup for Data Store
+            hit, latency = l1d.access(address)
+            if not hit:
+                l1d.update_after_miss(address)
+                l2_hit, l2_latency = l2.access(address)
+                latency += l2_latency
+                if not l2_hit:
+                    l2.update_after_miss(address)
+                    from processor_config import MAIN_MEMORY_LATENCY
+                    latency += MAIN_MEMORY_LATENCY
 
         else:
             self.MEM_WB_Buffer["writeback_value"] = self.EX_MEM_Buffer["alu_result"]
@@ -194,6 +231,8 @@ class Pipeline:
         self.MEM_WB_Buffer["rd"] = self.EX_MEM_Buffer["rd"]
         self.MEM_WB_Buffer["isLd"] = self.EX_MEM_Buffer["isLd"]
         self.MEM_WB_Buffer["rs2_value"] = self.EX_MEM_Buffer["rs2_value"]
+        
+        return latency
 
     def wb_stage(self, registers):
         if self.MEM_WB_Buffer["doWB"]:
