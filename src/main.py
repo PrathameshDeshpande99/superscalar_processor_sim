@@ -108,23 +108,32 @@ class ProcessorSimulatorUI:
             # Display memory in 16-byte rows (4 words per row)
             for addr in range(0, last_nonzero + 1, 16):
                 line = f"{self.MAGENTA}║{self.WHITE} "
-                line += f"{self.CYAN}0x{addr:04x}:{self.WHITE} "
-                
-                # Display 16 bytes in groups of 4
-                for offset in range(16):
-                    if addr + offset <= last_nonzero:
-                        byte_val = memory.data[addr + offset].value
-                        line += f"{byte_val:02x}"
-                    else:
-                        line += "  "
                     
-                    # Add space between words (every 4 bytes)
-                    if (offset + 1) % 4 == 0 and offset < 15:
-                        line += " "
+                # Print address in decimal
+                line += f"{self.CYAN}{addr:<6}:{self.WHITE} "
+                    
+                # Process 4 words (each word = 4 bytes)
+                for word_offset in range(0, 16, 4):
+                    base = addr + word_offset
+                        
+                    if base + 3 <= last_nonzero:
+                        # Combine 4 bytes into a 32-bit word (little endian)
+                        b0 = memory.data[base].value
+                        b1 = memory.data[base + 1].value
+                        b2 = memory.data[base + 2].value
+                        b3 = memory.data[base + 3].value
+                            
+                        word = (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
+                            
+                        # Convert to signed 32-bit integer
+                        if word & (1 << 31):
+                            word -= (1 << 32)
+                            
+                        line += f"{word:<10} "
                     else:
-                        line += ""
-                
-                line += f" {self.MAGENTA}║{self.WHITE}"
+                        line += " " * 10
+                    
+                line += f"{self.MAGENTA}║{self.WHITE}"
                 output.append(line)
         
         output.append(f"{self.BOLD}{self.MAGENTA}└───────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
