@@ -142,6 +142,33 @@ class ProcessorSimulatorUI:
         sys.stdout.write('\n'.join(output) + '\n')
         sys.stdout.flush()
 
+    def get_memory_lines(self, start=1024, num_words=20):
+        """Return formatted memory lines (compact view)."""
+        memory = self.cpu.memory
+        lines = []
+
+        for i in range(num_words):
+            addr = start + i * 4
+
+            if addr + 3 >= memory.size:
+                break
+
+            # Big endian word reconstruction
+            b0 = memory.data[addr].value
+            b1 = memory.data[addr + 1].value
+            b2 = memory.data[addr + 2].value
+            b3 = memory.data[addr + 3].value
+
+            word = (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
+
+            # signed conversion
+            if word & (1 << 31):
+                word -= (1 << 32)
+
+            lines.append(f"{addr:<6}: {word:<10}")
+
+        return lines
+
     def draw_dashboard(self):
         """Draw the entire UI dashboard (overwriting previous output)."""
         # Move cursor to top left instead of clearing screen to prevent flicker
@@ -183,6 +210,16 @@ class ProcessorSimulatorUI:
         output.append(f"{self.GREEN}║{self.WHITE} Current PC:   {self.cpu.pc:<12} Current IPC:       {ipc:<13.2f} {self.GREEN}║{self.WHITE}")
         output.append(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
+        # # --- MEMORY (LIVE SNAPSHOT) ---
+        # output.append(f"{self.BOLD}{self.MAGENTA}┌─ MEMORY (LIVE) ───────────────────────────────────────────────┐{self.WHITE}")
+
+        # mem_lines = self.get_memory_lines(start=1024, num_words=8)
+
+        # for line_mem in mem_lines:
+        #     output.append(f"{self.MAGENTA}║{self.WHITE} {line_mem:<60} {self.MAGENTA}║{self.WHITE}")
+
+        # output.append(f"{self.BOLD}{self.MAGENTA}└──────────────────────────────────────────────────────────────┘{self.WHITE}")
+
         # Print everything in a single fast write
         sys.stdout.write('\n'.join(output) + '\n')
         sys.stdout.flush()

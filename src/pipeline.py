@@ -159,9 +159,8 @@ class Pipeline:
         self.RF_EX_Buffer["isSt"] = isSt
         self.RF_EX_Buffer["doWB"] = doWB
 
-        # rd should be x0 in case of store instructions, to prevent unnecessary data hazards
-        if isSt:
-            self.RF_EX_Buffer["rd"] = bit5(0)
+        # Note: For S-type store instructions, the "rd" field contains Imm[4:0] (lower 5 bits of offset),
+        # not a destination register. Do NOT overwrite it with 0 as that would destroy offset information.
 
     def ex_stage(self, alu: ALU):
         """
