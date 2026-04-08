@@ -2,4 +2,5 @@
 # x1 = x2 + 5
 # Initial: x2 = 10
 # Expected: x1 = 15
+addi x2, x2, 10
 addi x1, x2, 5

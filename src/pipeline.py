@@ -421,5 +421,6 @@ class Pipeline:
     def _handle_branch(self, pc: int) -> int:
         """Handle taken branch by flushing pipeline and jumping to target."""
         self.IF_RF_Buffer = create_if_rf_buffer()  # Flush IF_RF buffer
-        # -2 offset: one instruction in IF, one in fetch queue pointed to by pc
-        return pc + self.RF_EX_Buffer["branch_offset"] - 2
+        # -1 offset: pc currently points to the instruction just fetched into IF_RF
+        # (which is flushed above). The branch itself is at pc-1, so target = (pc-1) + offset.
+        return (pc - 1) + self.RF_EX_Buffer["branch_offset"]

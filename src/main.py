@@ -4,11 +4,6 @@ Displays register values, pipeline stages, branch detection, stalls, and IPC in 
 
 Usage:
     python -m src.main <assembly_file> [sleep_time_ms]
-    
-Example:
-    python -m src.main test_loop 500          # Run test_loop with 500ms per cycle
-    python -m src.main sample 1000            # Run sample with 1000ms between cycles
-    python -m src.main test_add 100           # Run test_add with 100ms between cycles
 """
 
 import sys
@@ -23,10 +18,11 @@ from assembly_pipeline import assemble_program
 
 
 class ProcessorSimulatorUI:
-    """Terminal-based UI for processor simulation with pipeline visualization."""
+    """Terminal-based UI for processor simulation with real-time visualization."""
     
     # Colors and formatting
     HEADER = '\033[95m'
+    MAGENTA = '\033[35m'
     BLUE = '\033[94m'
     CYAN = '\033[96m'
     GREEN = '\033[92m'
@@ -34,151 +30,182 @@ class ProcessorSimulatorUI:
     RED = '\033[91m'
     WHITE = '\033[0m'
     BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
     
-    # Unicode characters for drawing
-    BLOCK = '█'
-    HALF_BLOCK = '▌'
-    EMPTY_BLOCK = '░'
+    # ANSI Display Controls
+    HIDE_CURSOR = '\033[?25l'
+    SHOW_CURSOR = '\033[?25h'
+    HOME_CURSOR = '\033[H'
+    CLEAR_SCREEN = '\033[2J'
     
     def __init__(self, program_name: str, sleep_ms: float = 500):
-        """Initialize the simulator UI."""
         self.program_name = program_name
-        self.sleep_ms = sleep_ms / 1000.0  # Convert to seconds
+        self.sleep_s = sleep_ms / 1000.0 
         self.cpu = CPU()
         self.instructions = assemble_program(program_name)
+        
+        # UI State Tracking
         self.cycle_count = 0
         self.instruction_count = 0
-        self.total_stalls = 0
-        self.branch_count = 0
+        self.total_stalls = 0  
+        self.branch_count = 0  
         
-    def clear_screen(self):
-        """Clear the terminal screen."""
-        os.system('clear' if os.name == 'posix' else 'cls')
-    
-    def print_header(self):
-        """Print the main header."""
-        title = f"{self.BOLD}{self.CYAN}═══ SUPERSCALAR PROCESSOR SIMULATOR ═══{self.WHITE}"
-        print(title)
-        print(f"Program: {self.BOLD}{self.program_name}{self.WHITE}")
-        print(f"Clock Cycle Delay: {self.sleep_ms * 1000:.0f}ms")
-        print()
-    
-    def print_register_panel(self):
-        """Print current register values in a formatted panel."""
-        print(f"{self.BOLD}{self.BLUE}┌─ REGISTER FILE ─────────────────────────────────────┐{self.WHITE}")
+    def setup_terminal(self):
+        """Prepare the terminal for flicker-free rendering."""
+        sys.stdout.write(self.CLEAR_SCREEN)
+        sys.stdout.write(self.HIDE_CURSOR)
+        sys.stdout.flush()
+
+    def cleanup_terminal(self):
+        """Restore standard terminal behavior."""
+        sys.stdout.write(self.SHOW_CURSOR)
+        sys.stdout.flush()
+        print("\n")
+
+    def format_buffer_contents(self, buffer) -> str:
+        """Safely extract readable data from pipeline buffers for the UI."""
+        if not buffer:
+            return f"{self.WHITE}Empty{self.WHITE}"
+            
+        parts = []
+        if isinstance(buffer, dict):
+            if 'pc' in buffer: parts.append(f"PC:{buffer['pc']}")
+            if 'op' in buffer: parts.append(f"OP:{buffer['op']}")
+            if 'result' in buffer: parts.append(f"Res:{buffer['result']}")
         
-        # Print registers in 4 columns
+        if not parts:
+            s = str(buffer)
+            return s[:25] + "..." if len(s) > 25 else s
+        return " | ".join(parts)
+
+    def draw_memory_snapshot(self):
+        """Display the entire memory snapshot after simulation completion."""
+        memory = self.cpu.memory
+        output = []
+        
+        output.append(f"\n{self.BOLD}{self.MAGENTA}┌─ MEMORY SNAPSHOT (ALL VALUES) ────────────────────────────────────────────┐{self.WHITE}")
+        
+        # Find the last non-zero address to avoid printing empty trailing memory
+        last_nonzero = -1
+        for i in range(memory.size - 1, -1, -1):
+            if memory.data[i].value != 0:
+                last_nonzero = i
+                break
+        
+        # If all memory is zero, just indicate that
+        if last_nonzero == -1:
+            output.append(f"{self.MAGENTA}║{self.WHITE} All memory is zero (empty)")
+        else:
+            # Display memory in 16-byte rows (4 words per row)
+            for addr in range(0, last_nonzero + 1, 16):
+                line = f"{self.MAGENTA}║{self.WHITE} "
+                line += f"{self.CYAN}0x{addr:04x}:{self.WHITE} "
+                
+                # Display 16 bytes in groups of 4
+                for offset in range(16):
+                    if addr + offset <= last_nonzero:
+                        byte_val = memory.data[addr + offset].value
+                        line += f"{byte_val:02x}"
+                    else:
+                        line += "  "
+                    
+                    # Add space between words (every 4 bytes)
+                    if (offset + 1) % 4 == 0 and offset < 15:
+                        line += " "
+                    else:
+                        line += ""
+                
+                line += f" {self.MAGENTA}║{self.WHITE}"
+                output.append(line)
+        
+        output.append(f"{self.BOLD}{self.MAGENTA}└───────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
+        
+        # Print everything
+        sys.stdout.write('\n'.join(output) + '\n')
+        sys.stdout.flush()
+
+    def draw_dashboard(self):
+        """Draw the entire UI dashboard (overwriting previous output)."""
+        # Move cursor to top left instead of clearing screen to prevent flicker
+        output = [self.HOME_CURSOR]
+        
+        # --- HEADER ---
+        output.append(f"{self.BOLD}{self.CYAN}═══ SUPERSCALAR PROCESSOR SIMULATOR (LIVE) ═══{self.WHITE}")
+        output.append(f"Program: {self.BOLD}{self.program_name}{self.WHITE} | Target Delay: {self.sleep_s * 1000:.0f}ms")
+        output.append("")
+        
+        # --- REGISTERS ---
+        output.append(f"{self.BOLD}{self.BLUE}┌─ REGISTER FILE ────────────────────────────────────────────────────────┐{self.WHITE}")
         for row in range(8):
             line = f"{self.BLUE}║{self.WHITE} "
             for col in range(4):
                 reg_num = row * 4 + col
                 if reg_num < 32:
-                    value = self.cpu.registers.read(bit5(reg_num))
-                    # Highlight x0
-                    if reg_num == 0:
-                        reg_str = f"{self.YELLOW}x{reg_num:2d}{self.WHITE}"
-                    else:
-                        reg_str = f"x{reg_num:2d}"
-                    line += f"{reg_str}={value.value:10d} "
+                    value = self.cpu.registers.read(bit5(reg_num)).value
+                    reg_str = f"{self.YELLOW}x{reg_num:<2}{self.WHITE}" if reg_num == 0 else f"x{reg_num:<2}"
+                    line += f"{reg_str}: {value:<11} "
             line += f"{self.BLUE}║{self.WHITE}"
-            print(line)
+            output.append(line)
+        output.append(f"{self.BOLD}{self.BLUE}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
-        print(f"{self.BOLD}{self.BLUE}└────────────────────────────────────────────────────┘{self.WHITE}")
-        print()
-    
-    def print_statistics_panel(self):
-        """Print execution statistics."""
-        print(f"{self.BOLD}{self.GREEN}┌─ STATISTICS ─────────────────────────────────────────┐{self.WHITE}")
+        # --- PIPELINE ---
+        p = self.cpu.pipeline
+        output.append(f"{self.BOLD}{self.YELLOW}┌─ PIPELINE BUFFERS ─────────────────────────────────────────────────────┐{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [IF Stage ] Fetching instruction at PC: {self.cpu.pc:<30} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [Decode/RF] {self.format_buffer_contents(p.IF_RF_Buffer):<55} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [Execute  ] {self.format_buffer_contents(p.RF_EX_Buffer):<55} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [Memory   ] {self.format_buffer_contents(p.EX_MEM_Buffer):<55} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [Writeback] {self.format_buffer_contents(p.MEM_WB_Buffer):<55} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.BOLD}{self.YELLOW}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
+        # --- STATISTICS ---
         ipc = self.instruction_count / max(self.cycle_count, 1)
+        output.append(f"{self.BOLD}{self.GREEN}┌─ EXECUTION STATISTICS ─────────────────────────────────────────────────┐{self.WHITE}")
+        output.append(f"{self.GREEN}║{self.WHITE} Clock Cycles: {self.cycle_count:<12} Instructions Exec: {self.instruction_count:<13} {self.GREEN}║{self.WHITE}")
+        output.append(f"{self.GREEN}║{self.WHITE} Current PC:   {self.cpu.pc:<12} Current IPC:       {ipc:<13.2f} {self.GREEN}║{self.WHITE}")
+        output.append(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
-        stats = [
-            f"Cycle Count:        {self.cycle_count:6d}",
-            f"Instructions Exec:  {self.instruction_count:6d}",
-            f"Total Stalls:       {self.total_stalls:6d}",
-            f"Branch Count:       {self.branch_count:6d}",
-            f"IPC:                {ipc:6.2f}",
-        ]
-        
-        for stat in stats:
-            print(f"{self.GREEN}║{self.WHITE} {stat:<48} {self.GREEN}║{self.WHITE}")
-        
-        print(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────┘{self.WHITE}")
-        print()
-    
-    def print_pipeline_panel(self):
-        """Print pipeline stages visualization."""
-        print(f"{self.BOLD}{self.YELLOW}┌─ PIPELINE STAGES ────────────────────────────────────┐{self.WHITE}")
-        
-        stages = ['IF', 'Decode', 'Exec', 'Mem', 'WB']
-        
-        print(f"{self.YELLOW}║{self.WHITE} ")
-        
-        for stage_name in stages:
-            stage_box = f"{self.CYAN}[{stage_name:6s}]{self.WHITE}"
-            print(f"{self.YELLOW}║{self.WHITE} {stage_box:25s} {self.BLOCK * 20} {self.YELLOW}║{self.WHITE}")
-        
-        print(f"{self.YELLOW}║{self.WHITE} ")
-        print(f"{self.BOLD}{self.YELLOW}└────────────────────────────────────────────────────┘{self.WHITE}")
-        print()
-    
-    def print_memory_access_info(self):
-        """Print recent memory access information."""
-        print(f"{self.BOLD}{self.RED}┌─ MEMORY & BRANCH INFO ───────────────────────────────┐{self.WHITE}")
-        print(f"{self.RED}║{self.WHITE} Last PC: {getattr(self.cpu, 'pc', 'N/A'):15} {self.RED}║{self.WHITE}")
-        print(f"{self.RED}║{self.WHITE} Instructions Loaded: {len(self.instructions):10d}           {self.RED}║{self.WHITE}")
-        print(f"{self.BOLD}{self.RED}└────────────────────────────────────────────────────┘{self.WHITE}")
-        print()
-    
-    def print_legend(self):
-        """Print the legend."""
-        print(f"{self.BOLD}Legend:{self.WHITE}")
-        print(f"  {self.CYAN}█{self.WHITE} = IF Stage      {self.BLUE}█{self.WHITE} = Decode Stage   {self.GREEN}█{self.WHITE} = Execute Stage")
-        print(f"  {self.YELLOW}█{self.WHITE} = Memory Stage   {self.RED}█{self.WHITE} = Writeback Stage")
-        print()
-    
-    def update_stats(self):
-        """Update simulation statistics."""
-        self.cycle_count += 1
-        self.instruction_count = min(self.cycle_count, len(self.instructions))
-    
+        # Print everything in a single fast write
+        sys.stdout.write('\n'.join(output) + '\n')
+        sys.stdout.flush()
+
     def run_simulation(self):
-        """Run the complete simulation."""
-        print(f"\n{self.BOLD}{self.YELLOW}Starting simulation of {self.program_name}...{self.WHITE}")
-        print(f"Loading {len(self.instructions)} instructions")
-        time.sleep(1)
-        
+        """Run the simulation loop with live UI updates."""
         try:
-            self.cpu.run_program(self.instructions)
+            self.setup_terminal()
             
-            # Final display
-            self.clear_screen()
-            self.print_header()
-            print(f"{self.GREEN}{self.BOLD}✓ Simulation Completed Successfully!{self.WHITE}\n")
-            self.print_register_panel()
-            self.print_statistics_panel()
-            self.print_pipeline_panel()
-            self.print_memory_access_info()
-            self.print_legend()
+            # Initial drawing before starting
+            self.draw_dashboard()
+            time.sleep(1)
             
-            ipc = self.instruction_count / max(self.cycle_count, 1)
-            print(f"{self.GREEN}{self.BOLD}Final IPC: {ipc:.2f}{self.WHITE}\n")
+            # Iterate through the execution cycle by cycle
+            for exec_count, cycles in self.cpu.execute_program_live(self.instructions):
+                self.instruction_count = exec_count
+                self.cycle_count = cycles
+                
+                self.draw_dashboard()
+                time.sleep(self.sleep_s)
+                
+            # Final completion state
+            self.draw_dashboard()
+            
+            # Display memory snapshot
+            self.draw_memory_snapshot()
+            
+            print(f"{self.BOLD}{self.GREEN}✓ Simulation Completed Successfully!{self.WHITE}")
             
         except KeyboardInterrupt:
-            print(f"\n{self.YELLOW}Simulation interrupted by user.{self.WHITE}\n")
+            print(f"\n\n{self.BOLD}{self.RED}⚠ Simulation interrupted by user.{self.WHITE}")
         except Exception as e:
-            self.clear_screen()
-            print(f"{self.RED}{self.BOLD}✗ Simulation Error!{self.WHITE}")
-            print(f"{self.RED}Error: {str(e)}{self.WHITE}\n")
+            print(f"\n\n{self.BOLD}{self.RED}✗ Simulation Error: {str(e)}{self.WHITE}")
             import traceback
             traceback.print_exc()
+        finally:
+            self.cleanup_terminal()
 
 
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Superscalar Processor Simulator with Terminal UI',
+        description='Superscalar Processor Simulator with Real-Time Terminal UI',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -188,23 +215,14 @@ Examples:
         """
     )
     
-    parser.add_argument(
-        'program',
-        help='Assembly program name (from assembly_programs/ folder, without .txt extension)'
-    )
-    
-    parser.add_argument(
-        'sleep_time',
-        nargs='?',
-        type=float,
-        default=500,
-        help='Time to sleep between cycles in milliseconds (default: 500)'
-    )
+    parser.add_argument('program', help='Assembly program name (without .txt extension)')
+    parser.add_argument('sleep_time', nargs='?', type=float, default=500, 
+                        help='Time to sleep between cycles in milliseconds (default: 500)')
     
     args = parser.parse_args()
     
     if args.sleep_time < 0:
-        print(f"{ProcessorSimulatorUI.RED}Error: Sleep time must be non-negative{ProcessorSimulatorUI.WHITE}")
+        print(f"Error: Sleep time must be non-negative")
         sys.exit(1)
     
     try:
@@ -212,7 +230,7 @@ Examples:
         simulator.run_simulation()
         
     except FileNotFoundError as e:
-        print(f"{ProcessorSimulatorUI.RED}Error: {str(e)}{ProcessorSimulatorUI.WHITE}")
+        print(f"Error: {str(e)}")
         print(f"\nAvailable programs in assembly_programs/:")
         asm_dir = Path(__file__).parent.parent / "assembly_programs"
         if asm_dir.exists():
@@ -220,9 +238,7 @@ Examples:
                 print(f"  - {f.stem}")
         sys.exit(1)
     except Exception as e:
-        print(f"{ProcessorSimulatorUI.RED}Unexpected error: {str(e)}{ProcessorSimulatorUI.WHITE}")
-        import traceback
-        traceback.print_exc()
+        print(f"Unexpected error: {str(e)}")
         sys.exit(1)
 
 
