@@ -162,9 +162,16 @@ def assemble_instructions(data):
 
             binary_data[Instruction_number] = Instruction_binary
 
-        elif string_parts[0] == "jal":
-            dest_reg = string_parts[1][1:]
-            goto_label = string_parts[2]
+        elif string_parts[0] == "jal" or string_parts[0] == "j":
+            # Handle both "jal" and "j" (pseudo-instruction for jal x0)
+            if string_parts[0] == "j":
+                # j label is equivalent to jal x0, label
+                dest_reg = "0"
+                goto_label = string_parts[1]
+            else:
+                # jal rd, label
+                dest_reg = string_parts[1][1:]
+                goto_label = string_parts[2]
 
             i = int(Instruction_number)
             j = int(Instruction_number)
