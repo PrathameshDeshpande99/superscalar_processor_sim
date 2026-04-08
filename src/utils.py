@@ -1,4 +1,10 @@
+"""
+Utility classes and methods for the superscalar processor simulator.
+Includes specific integer types for architectural representation.
+"""
+
 class bit32:
+    """Class representing a 32-bit integer."""
     def __init__(self, value: int | str | bit8 | bit5):
         if isinstance(value, str):
             self.value = int(value, 2) & 0xFFFFFFFF  # Convert binary string to int and ensure it's 32 bits
@@ -47,6 +53,7 @@ class bit32:
         return format(self.value, '032b')
     
 class bit8:
+    """Class representing an 8-bit integer."""
     def __init__(self, value: int | str | bit32 | bit5):
         if isinstance(value, str):
             self.value = int(value, 2) & 0xFF  # Convert binary string to int and ensure it's 8 bits
@@ -86,6 +93,7 @@ class bit8:
         return self.value == other.value
 
 class bit5:
+    """Class representing a 5-bit integer, suitable for register indices."""
     def __init__(self, value: int | str | bit32 | bit8):
         if isinstance(value, str):
             self.value = int(value, 2) & 0x1F  # Convert binary string to int and ensure it's 5 bits

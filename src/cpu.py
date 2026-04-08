@@ -1,3 +1,7 @@
+"""
+Module defining the main CPU class and execution logic.
+"""
+
 from registers import Registers
 from memory import Memory
 from pipeline import Pipeline
@@ -6,7 +10,11 @@ from utils import bit32, create_mem_wb_buffer
 import time
 
 class CPU:
+    """
+    Central Processing Unit (CPU) encapsulating components like registers, memory, pipeline and ALU.
+    """
     def __init__(self):
+        """Initialize the CPU with all its internal components and state."""
         self.registers = Registers()
         self.memory = Memory()
         self.pipeline = Pipeline()

@@ -41,6 +41,13 @@ class ProcessorSimulatorUI:
     CLEAR_SCREEN = '\033[2J'
     
     def __init__(self, program_name: str, sleep_ms: float = 500):
+        """
+        Initialize the UI and the underlying CPU simulator.
+
+        Args:
+            program_name (str): Name of the assembly file to load.
+            sleep_ms (float): Delay between cycles in milliseconds.
+        """
         self.program_name = program_name
         self.sleep_s = sleep_ms / 1000.0 
         self.cpu = CPU()

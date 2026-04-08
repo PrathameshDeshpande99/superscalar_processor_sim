@@ -1,9 +1,24 @@
+"""
+Module for converting assembly code to JSON format.
+"""
+
 import json
 
 input_file = "text_input.txt"
 
 
 def convert_asm_to_json(input_file, output_file):
+    """
+    Convert an assembly text file to a JSON file format.
+
+    Reads lines from the input file, ignoring empty lines and comments,
+    and writes them out as a dictionary mapped by line numbers to the
+    output JSON file.
+
+    Args:
+        input_file (str): The path to the input assembly file.
+        output_file (str): The path to the output JSON file.
+    """
 
     try:
         data = {}

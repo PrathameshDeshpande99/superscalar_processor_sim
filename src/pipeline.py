@@ -1,9 +1,16 @@
+"""
+Module defining the processor pipeline and its stages.
+"""
+
 from utils import IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5, bin_to_signed
 from alu import ALU
 
 from processor_config import DATA_FORWARDING_ENABLED
 
 class Pipeline:
+    """
+    Processor pipeline managing instruction execution through multiple stages.
+    """
     # objects in the pipeline:
     # IF_RF_Buffer
     # RF_EX_Buffer
@@ -11,12 +18,23 @@ class Pipeline:
     # MEM_WB_Buffer
 
     def __init__(self):
+        """Initialize pipeline with default structures and buffers."""
         self.IF_RF_Buffer = create_if_rf_buffer()
         self.RF_EX_Buffer = create_rf_ex_buffer()
         self.EX_MEM_Buffer = create_ex_mem_buffer()
         self.MEM_WB_Buffer = create_mem_wb_buffer()
 
     def if_stage(self, instructions: list[bit32], pc: int) -> int:
+        """
+        Instruction Fetch (IF) stage. Fetches instruction and updates buffer.
+
+        Args:
+            instructions (list[bit32]): Memory list containing instructions.
+            pc (int): Program counter.
+
+        Returns:
+            int: The incremented program counter.
+        """
         self.IF_RF_Buffer["instruction"] = instructions[pc]
         pc += 1
         return pc
@@ -146,6 +164,12 @@ class Pipeline:
             self.RF_EX_Buffer["rd"] = bit5(0)
 
     def ex_stage(self, alu: ALU):
+        """
+        Execution (EX) stage. Resolves inputs and delegates to ALU operations.
+
+        Args:
+            alu (ALU): Reference to Arithmetic Logic Unit object.
+        """
         def input_resolve() -> tuple[bit32, bit32]:
             A = self.RF_EX_Buffer["A"]
 
@@ -181,6 +205,12 @@ class Pipeline:
     """
 
     def mem_stage(self, memory):
+        """
+        Memory Access (MEM) stage. Handles reads and writes from/to data memory.
+
+        Args:
+            memory (Memory): Reference to Data Memory unit.
+        """
         if self.EX_MEM_Buffer["isLd"]:
             self.MEM_WB_Buffer["writeback_value"] = memory.read_word(self.EX_MEM_Buffer["alu_result"])
 
@@ -196,11 +226,26 @@ class Pipeline:
         self.MEM_WB_Buffer["rs2_value"] = self.EX_MEM_Buffer["rs2_value"]
 
     def wb_stage(self, registers):
+        """
+        Write Back (WB) stage. Finalizes register updates.
+
+        Args:
+            registers (Registers): Reference to Register file.
+        """
         if self.MEM_WB_Buffer["doWB"]:
             registers.write(self.MEM_WB_Buffer["rd"], self.MEM_WB_Buffer["writeback_value"])
 
     # NOTE: First Data hazards need to be checked, then control hazards
     def hazard_resolution(self, pc: int) -> int:
+        """
+        Detection and resolution of data and control hazards across pipeline stages.
+
+        Args:
+            pc (int): Current program counter.
+
+        Returns:
+            int: Resolved program counter (possibly stalled or redirected).
+        """
         # DATA HAZARDS:
 
         # 1. Check for hazard from the instruction currently in the EX/MEM stage

@@ -1,5 +1,8 @@
-import json
+"""
+Assembler module for converting JSON-formatted parsed assembly into binary representation.
+"""
 
+import json
 
 def assemble_instructions(data):
     """
