@@ -155,3 +155,37 @@ def test_instruction_loader_with_custom_nops():
         
     except FileNotFoundError as e:
         print(f"✓ Test skipped: {e}")
+
+
+def test_bubble_sort():
+    """
+    Test the bubble sort assembly program.
+    Loads bubble_sort.txt, assembles and executes it, then verifies that the array is sorted.
+    """
+    try:
+        # Load the bubble sort assembly program
+        instructions = load_instructions("bubble_sort", add_nops=4)
+        
+        # Create CPU and run the program
+        cpu = CPU()
+        cpu.run_program(instructions)
+        
+        # The sorted array should be stored at memory address 1024 (base address in x5)
+        # with 20 values, each 4 bytes apart
+        base_address = bit32(1024)
+        expected_sorted = [1, 3, 5, 11, 12, 14, 23, 27, 34, 38, 45, 50, 56, 60, 67, 72, 78, 89, 90, 99]
+        
+        # Verify each value in the sorted array
+        for i, expected_value in enumerate(expected_sorted):
+            address = base_address + bit32(i * 4)
+            actual_value = cpu.memory.read_word(address)
+            assert actual_value == bit32(expected_value), \
+                f"Array index {i}: expected {expected_value}, got {actual_value} at address {address}"
+        
+        print("✓ Bubble sort test passed: array is correctly sorted")
+        
+    except FileNotFoundError as e:
+        print(f"✓ Bubble sort test skipped: {e}")
+    except Exception as e:
+        print(f"✗ Bubble sort test failed: {e}")
+        raise
