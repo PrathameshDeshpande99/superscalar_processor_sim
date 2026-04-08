@@ -83,9 +83,10 @@ class Memory:
 
     def print_memory(self):
         """
-        Print the contents of a specific memory segment (base 2048).
+        Print the contents of a specific memory segment (base 1024).
         """
-        # base address = 2048
-        # print 20 words after 2048
-        for i in range(2048, 2048 + 20 * 4, 4):
-            print(f"Address {i}: {self.read_word(bit32(i)).value}")
+        # base address = 1024
+        # print 20 words after 1024
+        def print_memory(self, base=1024):
+            for i in range(base, base + 20 * 4, 4):
+                print(f"Address {i}: {self.read_word(bit32(i)).value}")

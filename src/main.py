@@ -123,7 +123,7 @@ class ProcessorSimulatorUI:
                         b2 = memory.data[base + 2].value
                         b3 = memory.data[base + 3].value
                             
-                        word = (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
+                        word = (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
                             
                         # Convert to signed 32-bit integer
                         if word & (1 << 31):
