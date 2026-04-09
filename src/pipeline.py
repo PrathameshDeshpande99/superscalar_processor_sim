@@ -5,7 +5,7 @@ Module defining the processor pipeline and its stages.
 from utils import PRE_IF_Buffer_Class, IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_pre_if_buffer, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5, bin_to_signed
 from alu import ALU
 
-from processor_config import DATA_FORWARDING_ENABLED
+from processor_config import DATA_FORWARDING_ENABLED, MAIN_MEMORY_CONFIG
 
 nop = bit32("00000000000000000000000000010011")
 
@@ -208,13 +208,23 @@ class Pipeline:
         self.EX_MEM_Buffer["mem_read_value"] = bit32(0)
 
         if cache_hierarchy and (self.EX_MEM_Buffer["isLd"] or self.EX_MEM_Buffer["isSt"]):
+            # Default value is MAIN_MEMORY_CONFIG['latency']
+            # Instruction already has MEM_LATENCY (20) in its remaining_cycles from create_ex_mem_buffer
+            
             if self.EX_MEM_Buffer["isLd"]:
                 val, latency = cache_hierarchy.read_word(self.EX_MEM_Buffer["alu_result"])
                 self.EX_MEM_Buffer["mem_read_value"] = val
-                self.EX_MEM_Buffer["remaining_cycles"] = latency
+                
+                # Decrement by difference of latencies (Main Memory Latency - Actual Latency)
+                diff = MAIN_MEMORY_CONFIG["latency"] - latency
+                self.EX_MEM_Buffer["remaining_cycles"] -= diff
+                
             elif self.EX_MEM_Buffer["isSt"]:
                 latency = cache_hierarchy.write_word(self.EX_MEM_Buffer["alu_result"], self.EX_MEM_Buffer["rs2_value"])
-                self.EX_MEM_Buffer["remaining_cycles"] = latency
+                
+                # Decrement by difference of latencies
+                diff = MAIN_MEMORY_CONFIG["latency"] - latency
+                self.EX_MEM_Buffer["remaining_cycles"] -= diff
 
     """
         Note: Machine is Big Endian
@@ -292,6 +302,7 @@ class Pipeline:
         # We need to prevent rf_stage from being called if the next instruction has a hazard
         data_hazard = False
         instruction_fetched = False
+        instruction_executed = False
         if self.IF_RF_Buffer["instruction"] != nop:
             if_rs1 = get_rs1_index(self.IF_RF_Buffer["instruction"])
             if_rs2 = get_rs2_index(self.IF_RF_Buffer["instruction"])
@@ -316,6 +327,8 @@ class Pipeline:
 
         if self.MEM_WB_Buffer["remaining_cycles"] <= 0:
             self.wb_stage(registers)
+            if self.MEM_WB_Buffer["instruction"] != nop:
+                instruction_executed = True
             self.MEM_WB_Buffer = create_mem_wb_buffer()   # make it nop after moving
 
         if self.EX_MEM_Buffer["remaining_cycles"] <= 0 and self.MEM_WB_Buffer["instruction"] == nop:
@@ -353,4 +366,4 @@ class Pipeline:
                 pc = pc + self.RF_EX_Buffer["branch_offset"] - 1
             print("New pc:", pc)
 
-        return pc, is_pipeline_empty
+        return pc, is_pipeline_empty, instruction_executed

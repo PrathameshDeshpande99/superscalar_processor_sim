@@ -3,11 +3,10 @@
 ISA: RV-32I
 
 ## Instructions to run:
+- write your assembly code in assembly_programs/ in a txt file
 - cd to src directory
-- write your assembly code in text_input.txt
-- run the Assembler.py to convert it to binary_input.json
-- run the Convertor.py to convert it to json_input.json
-- run the main.py to run the simulator
+- run the command: `python3 main.py bubble_sort 1`
+- format of above command: `python3 main.py <file name> <clock cycle time in ms>`
 
 ### Contributors (same for all dates):
 - 1. Prathamesh Vijay Deshpande
