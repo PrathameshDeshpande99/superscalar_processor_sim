@@ -34,7 +34,7 @@ class CPU:
         """
         old_pc = pc
         
-        pc = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+        pc, is_pipeline_empty = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
         # self.pipeline.wb_stage(self.registers)
         # self.pipeline.mem_stage(self.memory)
         # self.pipeline.ex_stage(self.alu)
@@ -62,13 +62,17 @@ class CPU:
         instructions_executed = 0
         clock_cycles = 0
 
-        while 0 <= pc < len(instructions):
+        is_pipeline_empty = False
+
+        while 0 <= pc < len(instructions) or not is_pipeline_empty:
             old_pc = pc
             
             if not quiet:
                 print(f"PC: {pc}")
             
-            pc = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+            if pc >= len(instructions):
+                pc = len(instructions) - 1  # Prevent out-of-bounds access
+            pc, is_pipeline_empty = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
             # self.pipeline.wb_stage(self.registers)
             # self.pipeline.mem_stage(self.memory)
             # self.pipeline.ex_stage(self.alu)
@@ -118,11 +122,15 @@ class CPU:
         instructions_executed = 0
         clock_cycles = 0
 
-        while 0 <= self.pc < len(instructions):
+        is_pipeline_empty = False
+
+        while 0 <= self.pc < len(instructions) or not is_pipeline_empty:
             old_pc = self.pc
             
+            if self.pc >= len(instructions):
+                self.pc = len(instructions) - 1  # Prevent out-of-bounds access
             # Execute one pipeline stage cycle
-            self.pc = self.pipeline.hazard_resolution(self.pc, self.registers, self.memory, self.alu, instructions)
+            self.pc, is_pipeline_empty = self.pipeline.hazard_resolution(self.pc, self.registers, self.memory, self.alu, instructions)
             # self.pipeline.wb_stage(self.registers)
             # self.pipeline.mem_stage(self.memory)
             # self.pipeline.ex_stage(self.alu)

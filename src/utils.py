@@ -146,7 +146,6 @@ class bit5:
 from typing import TypedDict
 
 class PRE_IF_Buffer_Class(TypedDict):
-    pc: bit32
     remaining_cycles: int
 
 class IF_RF_Buffer_Class(TypedDict):
@@ -192,21 +191,22 @@ class MEM_WB_Buffer_Class(TypedDict):
 # Constructors for pipeline buffers
 # Initialization should be done using nop instructions
 
+nop = bit32("00000000000000000000000000010011")   # addi x0, x0, 0 -> nop instruction
+
 def create_pre_if_buffer() -> PRE_IF_Buffer_Class:
     return {
-        "pc": bit32(0),
         "remaining_cycles": IF_LATENCY,
     }
 
 def create_if_rf_buffer() -> IF_RF_Buffer_Class:
     return {
-        "instruction": bit32("00000000000000000000000000010011"),
+        "instruction": nop,
         "remaining_cycles": RF_LATENCY,
     }
 
 def create_rf_ex_buffer() -> RF_EX_Buffer_Class:
     return {
-        "instruction": bit32("00000000000000000000000000010011"),
+        "instruction": nop,
         "A": bit32(0),
         "B": bit32(0),
         "rs1": bit5(0),
@@ -226,7 +226,7 @@ def create_rf_ex_buffer() -> RF_EX_Buffer_Class:
 
 def create_ex_mem_buffer() -> EX_MEM_Buffer_Class:
     return {
-        "instruction": bit32("00000000000000000000000000010011"),
+        "instruction": nop,
         "alu_result": bit32(0),
         "rs2_value": bit32(0),
         "rd": bit5(0),
@@ -238,7 +238,7 @@ def create_ex_mem_buffer() -> EX_MEM_Buffer_Class:
 
 def create_mem_wb_buffer() -> MEM_WB_Buffer_Class:
     return {
-        "instruction": bit32("00000000000000000000000000010011"),
+        "instruction": nop,
         "writeback_value": bit32(0),
         "rs2_value": bit32(0),
         "rd": bit5(0),

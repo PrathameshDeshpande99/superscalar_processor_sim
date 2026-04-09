@@ -78,10 +78,12 @@ class ProcessorSimulatorUI:
             
         parts = []
         if isinstance(buffer, dict):
-            if 'pc' in buffer: parts.append(f"PC:{buffer['pc']}")
-            if 'op' in buffer: parts.append(f"OP:{buffer['op']}")
-            if 'result' in buffer: parts.append(f"Res:{buffer['result']}")
-        
+            if 'remaining_cycles' in buffer: parts.append(f"Remaining Cycles: {buffer['remaining_cycles']}")
+            if 'instruction' in buffer: parts.append(f"Instr: {buffer['instruction']}")
+            # if 'writeback_value' in buffer: parts.append(f"Writeback_value: {buffer['writeback_value']}")
+            # if 'alu_result' in buffer: parts.append(f"alu_result: {buffer['alu_result']}")
+            # if 'A' in buffer: parts.append(f"A: {buffer['A']}")
+            # if 'B' in buffer: parts.append(f"B: {buffer['B']}")
         if not parts:
             s = str(buffer)
             return s[:25] + "..." if len(s) > 25 else s
@@ -196,7 +198,7 @@ class ProcessorSimulatorUI:
         # --- PIPELINE ---
         p = self.cpu.pipeline
         output.append(f"{self.BOLD}{self.YELLOW}┌─ PIPELINE BUFFERS ─────────────────────────────────────────────────────┐{self.WHITE}")
-        output.append(f"{self.YELLOW}║{self.WHITE} [IF Stage ] Fetching instruction at PC: {self.cpu.pc:<30} {self.YELLOW}║{self.WHITE}")
+        output.append(f"{self.YELLOW}║{self.WHITE} [IF Stage ] Fetching instruction at PC: {self.cpu.pc:<30} {self.format_buffer_contents(p.IF_RF_Buffer):<55} {self.YELLOW}║{self.WHITE}")
         output.append(f"{self.YELLOW}║{self.WHITE} [Decode/RF] {self.format_buffer_contents(p.IF_RF_Buffer):<55} {self.YELLOW}║{self.WHITE}")
         output.append(f"{self.YELLOW}║{self.WHITE} [Execute  ] {self.format_buffer_contents(p.RF_EX_Buffer):<55} {self.YELLOW}║{self.WHITE}")
         output.append(f"{self.YELLOW}║{self.WHITE} [Memory   ] {self.format_buffer_contents(p.EX_MEM_Buffer):<55} {self.YELLOW}║{self.WHITE}")

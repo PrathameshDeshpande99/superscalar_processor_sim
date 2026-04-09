@@ -81,6 +81,8 @@ class Pipeline:
         rs1_index = get_rs1_index(instruction)
         rs2_index = get_rs2_index(instruction)
 
+        # RAW hazard resolution: If a pending write exists for rs1/rs2, use the old register value
+        # This prevents deadlock from instruction stalling forever
         A = registers.read(rs1_index)
         B = registers.read(rs2_index)
 
@@ -189,7 +191,8 @@ class Pipeline:
             return A, B
         
         A, B = input_resolve()
-    
+
+        self.EX_MEM_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]
         self.EX_MEM_Buffer["rd"] = self.RF_EX_Buffer["rd"]
 
         self.EX_MEM_Buffer["isLd"] = self.RF_EX_Buffer["isLd"]
@@ -222,6 +225,7 @@ class Pipeline:
         else:
             self.MEM_WB_Buffer["writeback_value"] = self.EX_MEM_Buffer["alu_result"]
 
+        self.MEM_WB_Buffer["instruction"] = self.EX_MEM_Buffer["instruction"]
         self.MEM_WB_Buffer["doWB"] = self.EX_MEM_Buffer["doWB"]
         self.MEM_WB_Buffer["rd"] = self.EX_MEM_Buffer["rd"]
         self.MEM_WB_Buffer["isLd"] = self.EX_MEM_Buffer["isLd"]
@@ -281,36 +285,41 @@ class Pipeline:
 
 
         self.PRE_IF_Buffer["remaining_cycles"] -= 1
-        self.IF_RF_Buffer["remaining_cycles"] -= 1
          # if there is a hazard, we cannot decrement remaining_cycles of RF_EX_Buffer because it is not moving to next buffer, so we are giving it another cycle to resolve the hazard
         if not ex_mem_hazard and not mem_wb_hazard:
-            self.RF_EX_Buffer["remaining_cycles"] -= 1
+            self.IF_RF_Buffer["remaining_cycles"] -= 1
+        else:
+            self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop to stall the instruction in RF/EX stage until hazard is resolved
+        self.RF_EX_Buffer["remaining_cycles"] -= 1
         self.EX_MEM_Buffer["remaining_cycles"] -= 1
         self.MEM_WB_Buffer["remaining_cycles"] -= 1
 
 
-        if self.MEM_WB_Buffer["remaining_cycles"] == 0:
+        if self.MEM_WB_Buffer["remaining_cycles"] <= 0:
             self.wb_stage(registers)
             self.MEM_WB_Buffer = create_mem_wb_buffer()   # make it nop after moving
 
-        if self.EX_MEM_Buffer["remaining_cycles"] == 0 and self.MEM_WB_Buffer["instruction"] == nop:
+        if self.EX_MEM_Buffer["remaining_cycles"] <= 0 and self.MEM_WB_Buffer["instruction"] == nop:
             self.mem_stage(memory)
             self.EX_MEM_Buffer = create_ex_mem_buffer()   # make it nop after moving
 
-        if self.RF_EX_Buffer["remaining_cycles"] == 0 and self.EX_MEM_Buffer["instruction"] == nop:
+        if self.RF_EX_Buffer["remaining_cycles"] <= 0 and self.EX_MEM_Buffer["instruction"] == nop:
             self.ex_stage(alu)
             self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop after moving
 
-        if self.IF_RF_Buffer["remaining_cycles"] == 0 and self.RF_EX_Buffer["instruction"] == nop:
+        if self.IF_RF_Buffer["remaining_cycles"] <= 0 and self.RF_EX_Buffer["instruction"] == nop:
             self.rf_stage(registers)
-            self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
+            if not ex_mem_hazard and not mem_wb_hazard:
+                self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
 
-        if self.PRE_IF_Buffer["remaining_cycles"] == 0 and self.IF_RF_Buffer["instruction"] == nop:
+        if self.PRE_IF_Buffer["remaining_cycles"] <= 0 and self.IF_RF_Buffer["instruction"] == nop:
             self.if_stage(instructions, pc)
             self.PRE_IF_Buffer = create_pre_if_buffer()   # make it nop after moving
             pc += 1    # increment pc only when instruction is actually fetched
 
-        return pc
+        is_pipeline_empty = self.IF_RF_Buffer["instruction"] == nop and self.RF_EX_Buffer["instruction"] == nop and self.EX_MEM_Buffer["instruction"] == nop and self.MEM_WB_Buffer["instruction"] == nop
+
+        return pc, is_pipeline_empty
         
         # # CONTROL HAZARDS:
         # if self.RF_EX_Buffer["isBranchTaken"]:
