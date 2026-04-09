@@ -278,6 +278,7 @@ class Pipeline:
         # Check for hazard with instruction in IF/RF (before it enters RF/EX)
         # We need to prevent rf_stage from being called if the next instruction has a hazard
         data_hazard = False
+        instruction_fetched = False
         if self.IF_RF_Buffer["instruction"] != nop:
             if_rs1 = get_rs1_index(self.IF_RF_Buffer["instruction"])
             if_rs2 = get_rs2_index(self.IF_RF_Buffer["instruction"])
@@ -319,6 +320,7 @@ class Pipeline:
         if self.PRE_IF_Buffer["remaining_cycles"] <= 0 and self.IF_RF_Buffer["instruction"] == nop:
             self.if_stage(instructions, pc)
             self.PRE_IF_Buffer = create_pre_if_buffer()   # make it nop after moving
+            instruction_fetched = True
             pc += 1    # increment pc only when instruction is actually fetched
 
         is_pipeline_empty = self.IF_RF_Buffer["instruction"] == nop and self.RF_EX_Buffer["instruction"] == nop and self.EX_MEM_Buffer["instruction"] == nop and self.MEM_WB_Buffer["instruction"] == nop
@@ -330,7 +332,12 @@ class Pipeline:
 
             # flush the currently fetched function in IF_RF Buffer
             self.IF_RF_Buffer = create_if_rf_buffer()   # nop
-            print("New pc:", pc + self.RF_EX_Buffer["branch_offset"] - 2)
-            pc = pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
- 
+
+            # pc is not incremented until instruction is fetched in IF stage
+            if instruction_fetched:
+                pc = pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
+            else:
+                pc = pc + self.RF_EX_Buffer["branch_offset"] - 1
+            print("New pc:", pc)
+
         return pc, is_pipeline_empty
