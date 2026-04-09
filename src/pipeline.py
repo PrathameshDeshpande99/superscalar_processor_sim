@@ -2,10 +2,12 @@
 Module defining the processor pipeline and its stages.
 """
 
-from utils import IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5, bin_to_signed
+from utils import PRE_IF_Buffer_Class, IF_RF_Buffer_Class, RF_EX_Buffer_Class, EX_MEM_Buffer_Class, MEM_WB_Buffer_Class, create_pre_if_buffer, create_if_rf_buffer, create_rf_ex_buffer, create_ex_mem_buffer, create_mem_wb_buffer, bit32, bit8, bit5, bin_to_signed
 from alu import ALU
 
 from processor_config import DATA_FORWARDING_ENABLED
+
+nop = bit32("00000000000000000000000000010011")
 
 class Pipeline:
     """
@@ -19,6 +21,7 @@ class Pipeline:
 
     def __init__(self):
         """Initialize pipeline with default structures and buffers."""
+        self.PRE_IF_Buffer = create_pre_if_buffer()
         self.IF_RF_Buffer = create_if_rf_buffer()
         self.RF_EX_Buffer = create_rf_ex_buffer()
         self.EX_MEM_Buffer = create_ex_mem_buffer()
@@ -235,17 +238,30 @@ class Pipeline:
             registers.write(self.MEM_WB_Buffer["rd"], self.MEM_WB_Buffer["writeback_value"])
 
     # NOTE: First Data hazards need to be checked, then control hazards
-    def hazard_resolution(self, pc: int) -> int:
+    def hazard_resolution(self, pc: int, registers, memory, alu, instructions) -> int:
         """
         Detection and resolution of data and control hazards across pipeline stages.
 
         Args:
             pc (int): Current program counter.
+            registers (Registers): Reference to Register file.
+            memory (Memory): Reference to Data Memory unit.
+            alu (ALU): Reference to Arithmetic Logic Unit.
+            instructions (list[bit32]): List of instruction objects.
 
         Returns:
             int: Resolved program counter (possibly stalled or redirected).
         """
-        # DATA HAZARDS:
+
+        # PIPELINE FORWARDING IS NOT SUPPORTED AT ALL
+
+        # Doing new approach for hazard resolution to handle control, data and structural hazards (new due to variable latencies)
+        # APPROACH:
+        # every clock cycle reduce remaining_cycles of each buffer by one. 
+        # This decrement by 1 is only done for buffers which do not have a data dependencies among the ones already defined, then only you can decrement.
+        # If any buffer is hit zero, it is ready to be moved to next buffer
+        # only move when next buffer is found to be a nop
+        # when a instruction is moved to next buffer, the current one has to be made a nop so that previous stages can know that it is free.
 
         # 1. Check for hazard from the instruction currently in the EX/MEM stage
         ex_mem_hazard = (
@@ -263,46 +279,46 @@ class Pipeline:
              self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
         )
 
-        if DATA_FORWARDING_ENABLED:
-            if ex_mem_hazard and self.EX_MEM_Buffer["isLd"]:
-                # give a stall
-                print("Stall due to data hazard")
-                self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
-                self.RF_EX_Buffer = create_rf_ex_buffer()
-                return pc - 1    # refetch the last instruction
 
-            elif ex_mem_hazard:
-                # data forwarding
-                print("Data forwarding EX->EX")
-                if self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs1"]:
-                    self.RF_EX_Buffer["A"] = self.EX_MEM_Buffer["alu_result"]
-                if self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs2"]:
-                    self.RF_EX_Buffer["B"] = self.EX_MEM_Buffer["alu_result"]
+        self.PRE_IF_Buffer["remaining_cycles"] -= 1
+        self.IF_RF_Buffer["remaining_cycles"] -= 1
+         # if there is a hazard, we cannot decrement remaining_cycles of RF_EX_Buffer because it is not moving to next buffer, so we are giving it another cycle to resolve the hazard
+        if not ex_mem_hazard and not mem_wb_hazard:
+            self.RF_EX_Buffer["remaining_cycles"] -= 1
+        self.EX_MEM_Buffer["remaining_cycles"] -= 1
+        self.MEM_WB_Buffer["remaining_cycles"] -= 1
 
-            elif mem_wb_hazard:
-                # data forwarding
-                print("Data forwarding MEM->EX")
-                if self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs1"]:
-                    self.RF_EX_Buffer["A"] = self.MEM_WB_Buffer["writeback_value"]
-                if self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"]:
-                    self.RF_EX_Buffer["B"] = self.MEM_WB_Buffer["writeback_value"]
 
-        else:   # DATA_FORWARDING_ENABLED = False
-            if ex_mem_hazard or mem_wb_hazard:
-                # send nop / bubble into the pipeline
-                print("Stall due to data hazard")
-                self.IF_RF_Buffer["instruction"] = self.RF_EX_Buffer["instruction"]     # instruction is sent again to starting of RF stage
-                self.RF_EX_Buffer = create_rf_ex_buffer()
-                return pc - 1    # refetch the last instruction
+        if self.MEM_WB_Buffer["remaining_cycles"] == 0:
+            self.wb_stage(registers)
+            self.MEM_WB_Buffer = create_mem_wb_buffer()   # make it nop after moving
 
+        if self.EX_MEM_Buffer["remaining_cycles"] == 0 and self.MEM_WB_Buffer["instruction"] == nop:
+            self.mem_stage(memory)
+            self.EX_MEM_Buffer = create_ex_mem_buffer()   # make it nop after moving
+
+        if self.RF_EX_Buffer["remaining_cycles"] == 0 and self.EX_MEM_Buffer["instruction"] == nop:
+            self.ex_stage(alu)
+            self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop after moving
+
+        if self.IF_RF_Buffer["remaining_cycles"] == 0 and self.RF_EX_Buffer["instruction"] == nop:
+            self.rf_stage(registers)
+            self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
+
+        if self.PRE_IF_Buffer["remaining_cycles"] == 0 and self.IF_RF_Buffer["instruction"] == nop:
+            self.if_stage(instructions, pc)
+            self.PRE_IF_Buffer = create_pre_if_buffer()   # make it nop after moving
+            pc += 1    # increment pc only when instruction is actually fetched
+
+        return pc
         
-        # CONTROL HAZARDS:
-        if self.RF_EX_Buffer["isBranchTaken"]:
-            print("Stall due to control hazard")
+        # # CONTROL HAZARDS:
+        # if self.RF_EX_Buffer["isBranchTaken"]:
+        #     print("Stall due to control hazard")
 
-            # flush the currently fetched function in IF_RF Buffer
-            self.IF_RF_Buffer = create_if_rf_buffer()   # nop
-            print("New pc:", pc + self.RF_EX_Buffer["branch_offset"] - 2)
-            return pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
+        #     # flush the currently fetched function in IF_RF Buffer
+        #     self.IF_RF_Buffer = create_if_rf_buffer()   # nop
+        #     print("New pc:", pc + self.RF_EX_Buffer["branch_offset"] - 2)
+        #     return pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
 
-        return pc   # if no hazard, continue normal execution
+        # return pc   # if no hazard, continue normal execution

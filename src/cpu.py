@@ -34,14 +34,14 @@ class CPU:
         """
         old_pc = pc
         
-        pc = self.pipeline.hazard_resolution(pc)
-        self.pipeline.wb_stage(self.registers)
-        self.pipeline.mem_stage(self.memory)
-        self.pipeline.ex_stage(self.alu)
-        self.pipeline.rf_stage(self.registers)
-        self.pipeline.if_stage(instructions, pc)
+        pc = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+        # self.pipeline.wb_stage(self.registers)
+        # self.pipeline.mem_stage(self.memory)
+        # self.pipeline.ex_stage(self.alu)
+        # self.pipeline.rf_stage(self.registers)
+        # self.pipeline.if_stage(instructions, pc)
         
-        pc += 1
+        # pc += 1
         instructions_executed = 1 if (pc != old_pc) else 0
         
         return pc, instructions_executed
@@ -67,13 +67,13 @@ class CPU:
             
             if not quiet:
                 print(f"PC: {pc}")
-
-            pc = self.pipeline.hazard_resolution(pc)
-            self.pipeline.wb_stage(self.registers)
-            self.pipeline.mem_stage(self.memory)
-            self.pipeline.ex_stage(self.alu)
-            self.pipeline.rf_stage(self.registers)
-            self.pipeline.if_stage(instructions, pc)
+            
+            pc = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+            # self.pipeline.wb_stage(self.registers)
+            # self.pipeline.mem_stage(self.memory)
+            # self.pipeline.ex_stage(self.alu)
+            # self.pipeline.rf_stage(self.registers)
+            # self.pipeline.if_stage(instructions, pc)
 
             if not quiet:
                 print("Buffers:")
@@ -94,14 +94,12 @@ class CPU:
                 print(f"x29: {self.registers.registers[29].value}")
                 print(f"x30: {self.registers.registers[30].value}")
 
-            pc += 1
+            # pc += 1
 
             if(pc != old_pc):
                 instructions_executed += 1
 
             clock_cycles += 1
-
-            # time.sleep(0.1)
 
         return instructions_executed, clock_cycles
     
@@ -124,15 +122,16 @@ class CPU:
             old_pc = self.pc
             
             # Execute one pipeline stage cycle
-            self.pc = self.pipeline.hazard_resolution(self.pc)
-            self.pipeline.wb_stage(self.registers)
-            self.pipeline.mem_stage(self.memory)
-            self.pipeline.ex_stage(self.alu)
-            self.pipeline.rf_stage(self.registers)
-            self.pipeline.if_stage(instructions, self.pc)
+            self.pc = self.pipeline.hazard_resolution(self.pc, self.registers, self.memory, self.alu, instructions)
+            # self.pipeline.wb_stage(self.registers)
+            # self.pipeline.mem_stage(self.memory)
+            # self.pipeline.ex_stage(self.alu)
+            # self.pipeline.rf_stage(self.registers)
+            # self.pipeline.if_stage(instructions, self.pc)
             
-            self.pc += 1
+            # self.pc += 1
             
+            # logic for instructions_executed still requires attention
             if self.pc != old_pc:
                 instructions_executed += 1
             
