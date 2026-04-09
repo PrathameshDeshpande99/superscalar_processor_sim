@@ -23,6 +23,11 @@ class CPU:
         self.pipeline = Pipeline()
         self.alu = ALU()
         self.pc = 0  # Track current program counter
+        
+        # Instantiate Caches
+        self.l1i = Cache("L1I", config.L1_SIZE, config.BLOCK_SIZE, config.L1_ASSOCIATIVITY, config.L1_LATENCY, config.REPLACEMENT_POLICY)
+        self.l1d = Cache("L1D", config.L1_SIZE, config.BLOCK_SIZE, config.L1_ASSOCIATIVITY, config.L1_LATENCY, config.REPLACEMENT_POLICY)
+        self.l2 = Cache("L2", config.L2_SIZE, config.BLOCK_SIZE, config.L2_ASSOCIATIVITY, config.L2_LATENCY, config.REPLACEMENT_POLICY)
 
     def execute_cycle(self, instructions: list[bit32], pc: int) -> tuple[int, int]:
         """
@@ -39,21 +44,15 @@ class CPU:
         
         pc = self.pipeline.hazard_resolution(pc)
         self.pipeline.wb_stage(self.registers)
-        self.pipeline.mem_stage(self.memory)
+        self.pipeline.mem_stage(self.memory, self.l1d, self.l2)
         self.pipeline.ex_stage(self.alu)
         self.pipeline.rf_stage(self.registers)
-        self.pipeline.if_stage(instructions, pc)
+        self.pipeline.if_stage(instructions, pc, self.l1i, self.l2)
         
         pc += 1
         instructions_executed = 1 if (pc != old_pc) else 0
         
         return pc, instructions_executed
-
-        # Instantiate Caches
-        self.l1i = Cache("L1I", config.L1_SIZE, config.BLOCK_SIZE, config.L1_ASSOCIATIVITY, config.L1_LATENCY, config.REPLACEMENT_POLICY)
-        self.l1d = Cache("L1D", config.L1_SIZE, config.BLOCK_SIZE, config.L1_ASSOCIATIVITY, config.L1_LATENCY, config.REPLACEMENT_POLICY)
-        self.l2 = Cache("L2", config.L2_SIZE, config.BLOCK_SIZE, config.L2_ASSOCIATIVITY, config.L2_LATENCY, config.REPLACEMENT_POLICY)
-
     
     def run_program(self, instructions: list[bit32], quiet: bool = True):
         """
@@ -68,7 +67,6 @@ class CPU:
         """
         
         pc = 0
-        old_pc = pc
         instructions_executed = 0
         clock_cycles = 0
         total_stalls = 0
@@ -93,7 +91,6 @@ class CPU:
 
             # Calculate stalls and cycles
             # Base cycle is 1. Any additional latency is a stall.
-            # In a real pipeline, these could overlap, but here we sum additional latencies.
             added_cycles = max(0, if_latency - 1) + max(0, mem_latency - 1)
             total_stalls += added_cycles
             clock_cycles += 1 + added_cycles
@@ -105,19 +102,8 @@ class CPU:
                 print(f"EX_MEM_Buffer: {self.pipeline.EX_MEM_Buffer}")
                 print(f"MEM_WB_Buffer: {self.pipeline.MEM_WB_Buffer}")
                 print("Registers:")
-                print(f"x1: {self.registers.registers[1].value}")
-                print(f"x2: {self.registers.registers[2].value}")
-                print(f"x3: {self.registers.registers[3].value}")
-                print(f"x4: {self.registers.registers[4].value}")
-                print(f"x5: {self.registers.registers[5].value}")
-                print(f"x6: {self.registers.registers[6].value}")
-                print(f"x7: {self.registers.registers[7].value}")
-                print(f"x8: {self.registers.registers[8].value}")
-                print(f"x28: {self.registers.registers[28].value}")
-                print(f"x29: {self.registers.registers[29].value}")
-                print(f"x30: {self.registers.registers[30].value}")
-            print("Buffers:")
-            # ... (previous print statements)
+                for i in [1, 2, 3, 4, 5, 6, 7, 8, 28, 29, 30]:
+                    print(f"x{i}: {self.registers.registers[i].value}")
 
             pc += 1
 
@@ -147,7 +133,6 @@ class CPU:
             Tuple of (instructions_executed, clock_cycles)
         """
         self.pc = 0
-        old_pc = 0
         instructions_executed = 0
         clock_cycles = 0
 
@@ -157,17 +142,23 @@ class CPU:
             # Execute one pipeline stage cycle
             self.pc = self.pipeline.hazard_resolution(self.pc)
             self.pipeline.wb_stage(self.registers)
-            self.pipeline.mem_stage(self.memory)
+            
+            # Pass cache objects to mem_stage and if_stage
+            mem_latency = self.pipeline.mem_stage(self.memory, self.l1d, self.l2)
             self.pipeline.ex_stage(self.alu)
             self.pipeline.rf_stage(self.registers)
-            self.pipeline.if_stage(instructions, self.pc)
+            if_latency = self.pipeline.if_stage(instructions, self.pc, self.l1i, self.l2)
+            
+            # Handle additional latencies from caches
+            added_cycles = max(0, if_latency - 1) + max(0, mem_latency - 1)
             
             self.pc += 1
             
             if self.pc != old_pc:
                 instructions_executed += 1
             
-            clock_cycles += 1
+            clock_cycles += 1 + added_cycles
             
-            # Yield state for UI update
+            # For live UI, we might want to yield for each added stall cycle or just the final count
+            # Here we just update the total cycles
             yield instructions_executed, clock_cycles
