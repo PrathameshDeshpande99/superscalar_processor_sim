@@ -323,15 +323,13 @@ class Pipeline:
 
         is_pipeline_empty = self.IF_RF_Buffer["instruction"] == nop and self.RF_EX_Buffer["instruction"] == nop and self.EX_MEM_Buffer["instruction"] == nop and self.MEM_WB_Buffer["instruction"] == nop
 
+        # CONTROL HAZARDS:
+        if self.RF_EX_Buffer["isBranchTaken"]:
+            print("Stall due to control hazard")
+
+            # flush the currently fetched function in IF_RF Buffer
+            self.IF_RF_Buffer = create_if_rf_buffer()   # nop
+            print("New pc:", pc + self.RF_EX_Buffer["branch_offset"] - 2)
+            pc = pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
+ 
         return pc, is_pipeline_empty
-        
-        # # CONTROL HAZARDS:
-        # if self.RF_EX_Buffer["isBranchTaken"]:
-        #     print("Stall due to control hazard")
-
-        #     # flush the currently fetched function in IF_RF Buffer
-        #     self.IF_RF_Buffer = create_if_rf_buffer()   # nop
-        #     print("New pc:", pc + self.RF_EX_Buffer["branch_offset"] - 2)
-        #     return pc + self.RF_EX_Buffer["branch_offset"] - 2      # -2 because pipeline had next 2 instructions lined up: one in IF stage, other pointed by pc
-
-        # return pc   # if no hazard, continue normal execution
