@@ -267,29 +267,34 @@ class Pipeline:
         # only move when next buffer is found to be a nop
         # when a instruction is moved to next buffer, the current one has to be made a nop so that previous stages can know that it is free.
 
-        # 1. Check for hazard from the instruction currently in the EX/MEM stage
-        ex_mem_hazard = (
-            self.EX_MEM_Buffer["doWB"] and 
-            self.EX_MEM_Buffer["rd"] != bit5(0) and 
-            (self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs1"] or 
-             self.EX_MEM_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
-        )
+        # Helper function to extract register indices from an instruction
+        def get_rs1_index(inst: bit32) -> int:
+            return (inst.value >> 15) & 0x1F
 
-        # 2. Check for hazard from the instruction currently in the MEM/WB stage
-        mem_wb_hazard = (
-            self.MEM_WB_Buffer["doWB"] and 
-            self.MEM_WB_Buffer["rd"] != bit5(0) and 
-            (self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs1"] or 
-             self.MEM_WB_Buffer["rd"] == self.RF_EX_Buffer["rs2"])
-        )
+        def get_rs2_index(inst: bit32) -> int:
+            return (inst.value >> 20) & 0x1F
 
+        # Data hazard will only happen when IF_RF stage instruction is in hazard with future buffers. We need to resolve before fetching the registers.
+        # Check for hazard with instruction in IF/RF (before it enters RF/EX)
+        # We need to prevent rf_stage from being called if the next instruction has a hazard
+        data_hazard = False
+        if self.IF_RF_Buffer["instruction"] != nop:
+            if_rs1 = get_rs1_index(self.IF_RF_Buffer["instruction"])
+            if_rs2 = get_rs2_index(self.IF_RF_Buffer["instruction"])
+            
+            data_hazard = (
+                (self.EX_MEM_Buffer["doWB"] and self.EX_MEM_Buffer["rd"] != bit5(0) and 
+                 (self.EX_MEM_Buffer["rd"] == bit5(if_rs1) or self.EX_MEM_Buffer["rd"] == bit5(if_rs2))) or
+                (self.MEM_WB_Buffer["doWB"] and self.MEM_WB_Buffer["rd"] != bit5(0) and 
+                 (self.MEM_WB_Buffer["rd"] == bit5(if_rs1) or self.MEM_WB_Buffer["rd"] == bit5(if_rs2))) or
+                (self.RF_EX_Buffer["doWB"] and self.RF_EX_Buffer["rd"] != bit5(0) and 
+                 (self.RF_EX_Buffer["rd"] == bit5(if_rs1) or self.RF_EX_Buffer["rd"] == bit5(if_rs2)))
+            )
 
         self.PRE_IF_Buffer["remaining_cycles"] -= 1
          # if there is a hazard, we cannot decrement remaining_cycles of RF_EX_Buffer because it is not moving to next buffer, so we are giving it another cycle to resolve the hazard
-        if not ex_mem_hazard and not mem_wb_hazard:
+        if not data_hazard:
             self.IF_RF_Buffer["remaining_cycles"] -= 1
-        else:
-            self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop to stall the instruction in RF/EX stage until hazard is resolved
         self.RF_EX_Buffer["remaining_cycles"] -= 1
         self.EX_MEM_Buffer["remaining_cycles"] -= 1
         self.MEM_WB_Buffer["remaining_cycles"] -= 1
@@ -307,10 +312,9 @@ class Pipeline:
             self.ex_stage(alu)
             self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop after moving
 
-        if self.IF_RF_Buffer["remaining_cycles"] <= 0 and self.RF_EX_Buffer["instruction"] == nop:
+        if self.IF_RF_Buffer["remaining_cycles"] <= 0 and self.RF_EX_Buffer["instruction"] == nop and not data_hazard:
             self.rf_stage(registers)
-            if not ex_mem_hazard and not mem_wb_hazard:
-                self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
+            self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
 
         if self.PRE_IF_Buffer["remaining_cycles"] <= 0 and self.IF_RF_Buffer["instruction"] == nop:
             self.if_stage(instructions, pc)
