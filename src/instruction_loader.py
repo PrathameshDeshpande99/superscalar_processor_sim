@@ -81,4 +81,19 @@ def load_instructions(asm_filename, add_nops=4):
     for _ in range(add_nops):
         instructions.append(nop)
     
+    # Step 6: Write binary instructions to a file for debugging
+    try:
+        debug_dir = workspace_root / "debug"
+        debug_dir.mkdir(exist_ok=True)
+        # Use stem of asm_filename if it's a path
+        base_name = Path(asm_filename).stem
+        debug_file = debug_dir / f"{base_name}_binary.txt"
+        
+        with open(debug_file, "w") as f:
+            for instr in instructions:
+                f.write(f"{str(instr)}\n")
+        print(f"Debug: Binary instructions written to {debug_file}")
+    except Exception as e:
+        print(f"Warning: Could not write debug binary file: {e}")
+    
     return instructions

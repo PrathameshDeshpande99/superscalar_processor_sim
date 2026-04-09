@@ -7,6 +7,8 @@ from memory import Memory
 from pipeline import Pipeline
 from alu import ALU
 from utils import bit32, create_mem_wb_buffer
+from cache import CacheHierarchy
+from processor_config import L1D_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG
 import time
 
 class CPU:
@@ -17,6 +19,7 @@ class CPU:
         """Initialize the CPU with all its internal components and state."""
         self.registers = Registers()
         self.memory = Memory()
+        self.cache_hierarchy = CacheHierarchy(self.memory, L1D_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG)
         self.pipeline = Pipeline()
         self.alu = ALU()
         self.pc = 0  # Track current program counter
@@ -34,7 +37,9 @@ class CPU:
         """
         old_pc = pc
         
-        pc, is_pipeline_empty = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+        pc, is_pipeline_empty = self.pipeline.hazard_resolution(
+            pc, self.registers, self.memory, self.alu, instructions, cache_hierarchy=self.cache_hierarchy
+        )
         # self.pipeline.wb_stage(self.registers)
         # self.pipeline.mem_stage(self.memory)
         # self.pipeline.ex_stage(self.alu)
@@ -72,7 +77,9 @@ class CPU:
             
             if pc >= len(instructions):
                 pc = len(instructions) - 1  # Prevent out-of-bounds access
-            pc, is_pipeline_empty = self.pipeline.hazard_resolution(pc, self.registers, self.memory, self.alu, instructions)
+            pc, is_pipeline_empty = self.pipeline.hazard_resolution(
+                pc, self.registers, self.memory, self.alu, instructions, cache_hierarchy=self.cache_hierarchy
+            )
             # self.pipeline.wb_stage(self.registers)
             # self.pipeline.mem_stage(self.memory)
             # self.pipeline.ex_stage(self.alu)
@@ -105,6 +112,9 @@ class CPU:
 
             clock_cycles += 1
 
+        # Flush all dirty cache lines to main memory after program execution completes
+        self.cache_hierarchy.flush_all_caches()
+
         return instructions_executed, clock_cycles
     
     def execute_program_live(self, instructions: list[bit32]):
@@ -130,7 +140,9 @@ class CPU:
             if self.pc >= len(instructions):
                 self.pc = len(instructions) - 1  # Prevent out-of-bounds access
             # Execute one pipeline stage cycle
-            self.pc, is_pipeline_empty = self.pipeline.hazard_resolution(self.pc, self.registers, self.memory, self.alu, instructions)
+            self.pc, is_pipeline_empty = self.pipeline.hazard_resolution(
+                self.pc, self.registers, self.memory, self.alu, instructions, cache_hierarchy=self.cache_hierarchy
+            )
             # self.pipeline.wb_stage(self.registers)
             # self.pipeline.mem_stage(self.memory)
             # self.pipeline.ex_stage(self.alu)
@@ -147,3 +159,6 @@ class CPU:
             
             # Yield state for UI update
             yield instructions_executed, clock_cycles
+        
+        # Flush all dirty cache lines to main memory after program execution completes
+        self.cache_hierarchy.flush_all_caches()

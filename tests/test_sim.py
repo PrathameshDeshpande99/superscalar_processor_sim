@@ -36,7 +36,7 @@ def test_addi1():
     assert cpu.registers.read(bit5(1)) == bit32(15)
     assert cpu.registers.read(bit5(2)) == bit32(10)
 
-def test_ld1():
+def test_lw1():
     cpu = CPU()
     cpu.registers.write(2, bit32(2048))
     cpu.memory.write(bit32(2048), bit8("01010101"))
@@ -49,7 +49,7 @@ def test_ld1():
     assert cpu.registers.read(bit5(3)) == bit32("01010101010101010101010101010101")
     assert cpu.registers.read(bit5(2)) == bit32(2048)
 
-def test_st1():
+def test_sw1():
     cpu = CPU()
     cpu.registers.write(2, bit32(2048))
     cpu.registers.write(4, bit32("01010101010101010101010101010101"))

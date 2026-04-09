@@ -167,12 +167,13 @@ class Pipeline:
         # Note: For S-type store instructions, the "rd" field contains Imm[4:0] (lower 5 bits of offset),
         # not a destination register. Do NOT overwrite it with 0 as that would destroy offset information.
 
-    def ex_stage(self, alu: ALU):
+    def ex_stage(self, alu: ALU, cache_hierarchy=None):
         """
         Execution (EX) stage. Resolves inputs and delegates to ALU operations.
 
         Args:
             alu (ALU): Reference to Arithmetic Logic Unit object.
+            cache_hierarchy (CacheHierarchy): Optional reference to Cache for estimating stalls.
         """
         def input_resolve() -> tuple[bit32, bit32]:
             A = self.RF_EX_Buffer["A"]
@@ -204,23 +205,33 @@ class Pipeline:
 
         # for store instruction, we need to pass the value of rs2 to memory access stage, so storing it in EX_MEM_Buffer
         self.EX_MEM_Buffer["rs2_value"] = self.RF_EX_Buffer["B"]
+        self.EX_MEM_Buffer["mem_read_value"] = bit32(0)
+
+        if cache_hierarchy and (self.EX_MEM_Buffer["isLd"] or self.EX_MEM_Buffer["isSt"]):
+            if self.EX_MEM_Buffer["isLd"]:
+                val, latency = cache_hierarchy.read_word(self.EX_MEM_Buffer["alu_result"])
+                self.EX_MEM_Buffer["mem_read_value"] = val
+                self.EX_MEM_Buffer["remaining_cycles"] = latency
+            elif self.EX_MEM_Buffer["isSt"]:
+                latency = cache_hierarchy.write_word(self.EX_MEM_Buffer["alu_result"], self.EX_MEM_Buffer["rs2_value"])
+                self.EX_MEM_Buffer["remaining_cycles"] = latency
 
     """
         Note: Machine is Big Endian
     """
 
-    def mem_stage(self, memory):
+    def mem_stage(self, memory=None):
         """
         Memory Access (MEM) stage. Handles reads and writes from/to data memory.
 
         Args:
-            memory (Memory): Reference to Data Memory unit.
+            memory (Memory): Reference to Data Memory unit (now largely handled by cache).
         """
         if self.EX_MEM_Buffer["isLd"]:
-            self.MEM_WB_Buffer["writeback_value"] = memory.read_word(self.EX_MEM_Buffer["alu_result"])
+            self.MEM_WB_Buffer["writeback_value"] = self.EX_MEM_Buffer["mem_read_value"]
 
         elif self.EX_MEM_Buffer["isSt"]:
-            memory.write_word(self.EX_MEM_Buffer["alu_result"], self.EX_MEM_Buffer["rs2_value"])
+            pass # Writes are now handled proactively in ex_stage to estimate stalling accurately
 
         else:
             self.MEM_WB_Buffer["writeback_value"] = self.EX_MEM_Buffer["alu_result"]
@@ -242,7 +253,7 @@ class Pipeline:
             registers.write(self.MEM_WB_Buffer["rd"], self.MEM_WB_Buffer["writeback_value"])
 
     # NOTE: First Data hazards need to be checked, then control hazards
-    def hazard_resolution(self, pc: int, registers, memory, alu, instructions) -> int:
+    def hazard_resolution(self, pc: int, registers, memory, alu, instructions, cache_hierarchy=None) -> int:
         """
         Detection and resolution of data and control hazards across pipeline stages.
 
@@ -252,6 +263,8 @@ class Pipeline:
             memory (Memory): Reference to Data Memory unit.
             alu (ALU): Reference to Arithmetic Logic Unit.
             instructions (list[bit32]): List of instruction objects.
+            cache_hierarchy (CacheHierarchy): Reference to Cache model.
+
 
         Returns:
             int: Resolved program counter (possibly stalled or redirected).
@@ -310,7 +323,7 @@ class Pipeline:
             self.EX_MEM_Buffer = create_ex_mem_buffer()   # make it nop after moving
 
         if self.RF_EX_Buffer["remaining_cycles"] <= 0 and self.EX_MEM_Buffer["instruction"] == nop:
-            self.ex_stage(alu)
+            self.ex_stage(alu, cache_hierarchy)
             self.RF_EX_Buffer = create_rf_ex_buffer()     # make it nop after moving
 
         if self.IF_RF_Buffer["remaining_cycles"] <= 0 and self.RF_EX_Buffer["instruction"] == nop and not data_hazard:

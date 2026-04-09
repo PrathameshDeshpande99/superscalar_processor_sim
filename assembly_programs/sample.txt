@@ -1,6 +1,0 @@
-LABELx : add x 0 , x 0 , x 1 # rd , rs 1 , rs 2
-sub x 0 , x 0 , x 1 # rd , rs 1 , rs 2
-bne x 0 , x 2 , LABELy # rs 1 , rs 2 , offset ( but label will suffice )
-sw x 0 , 0( x 3) # rd , offset ( rs 1)
-LABELy : sub x 0 , x 0 , x 2
-jal x 0 , LABELx # rd , offset ( again , label will work )

@@ -173,6 +173,7 @@ class RF_EX_Buffer_Class(TypedDict):
 class EX_MEM_Buffer_Class(TypedDict):
     alu_result: bit32
     rs2_value: bit32
+    mem_read_value: bit32
     rd: bit5
     isLd: bool
     isSt: bool
@@ -229,6 +230,7 @@ def create_ex_mem_buffer() -> EX_MEM_Buffer_Class:
         "instruction": nop,
         "alu_result": bit32(0),
         "rs2_value": bit32(0),
+        "mem_read_value": bit32(0),
         "rd": bit5(0),
         "isLd": False,
         "isSt": False,

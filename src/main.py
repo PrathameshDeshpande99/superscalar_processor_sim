@@ -79,9 +79,9 @@ class ProcessorSimulatorUI:
         parts = []
         if isinstance(buffer, dict):
             if 'remaining_cycles' in buffer: parts.append(f"Remaining Cycles: {buffer['remaining_cycles']}")
-            # if 'instruction' in buffer: parts.append(f"Instr: {buffer['instruction']}")
-            if 'writeback_value' in buffer: parts.append(f"Writeback_value: {buffer['writeback_value']}")
-            if 'rd' in buffer: parts.append(f"rd: {buffer['rd']}")
+            if 'instruction' in buffer: parts.append(f"Instr: {buffer['instruction']}")
+            # if 'writeback_value' in buffer: parts.append(f"Writeback_value: {buffer['writeback_value']}")
+            # if 'rd' in buffer: parts.append(f"rd: {buffer['rd']}")
             # if 'alu_result' in buffer: parts.append(f"alu_result: {buffer['alu_result']}")
             # if 'A' in buffer: parts.append(f"A: {buffer['A']}")
             # if 'B' in buffer: parts.append(f"B: {buffer['B']}")
@@ -208,9 +208,18 @@ class ProcessorSimulatorUI:
         
         # --- STATISTICS ---
         ipc = self.instruction_count / max(self.cycle_count, 1)
+        
+        l1d_hits = self.cpu.cache_hierarchy.l1d.hits
+        l1d_misses = self.cpu.cache_hierarchy.l1d.misses
+        l1d_total = l1d_hits + l1d_misses
+        l1d_miss_rate = (l1d_misses / l1d_total * 100) if l1d_total > 0 else 0.0
+        
+        mem_stalls = self.cpu.cache_hierarchy.total_mem_stalls
+        
         output.append(f"{self.BOLD}{self.GREEN}┌─ EXECUTION STATISTICS ─────────────────────────────────────────────────┐{self.WHITE}")
         output.append(f"{self.GREEN}║{self.WHITE} Clock Cycles: {self.cycle_count:<12} Instructions Exec: {self.instruction_count:<13} {self.GREEN}║{self.WHITE}")
         output.append(f"{self.GREEN}║{self.WHITE} Current PC:   {self.cpu.pc:<12} Current IPC:       {ipc:<13.2f} {self.GREEN}║{self.WHITE}")
+        output.append(f"{self.GREEN}║{self.WHITE} L1D Miss Rate:{l1d_miss_rate:>6.1f}%      Memory Stalls:     {mem_stalls:<13} {self.GREEN}║{self.WHITE}")
         output.append(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
         # # --- MEMORY (LIVE SNAPSHOT) ---
