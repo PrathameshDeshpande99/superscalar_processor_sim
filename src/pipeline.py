@@ -326,6 +326,7 @@ class Pipeline:
         # CONTROL HAZARDS:
         if self.RF_EX_Buffer["isBranchTaken"]:
             print("Stall due to control hazard")
+            self.RF_EX_Buffer["isBranchTaken"] = False   # reset the flag
 
             # flush the currently fetched function in IF_RF Buffer
             self.IF_RF_Buffer = create_if_rf_buffer()   # nop

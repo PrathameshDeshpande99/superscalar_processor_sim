@@ -79,8 +79,9 @@ class ProcessorSimulatorUI:
         parts = []
         if isinstance(buffer, dict):
             if 'remaining_cycles' in buffer: parts.append(f"Remaining Cycles: {buffer['remaining_cycles']}")
-            if 'instruction' in buffer: parts.append(f"Instr: {buffer['instruction']}")
-            # if 'writeback_value' in buffer: parts.append(f"Writeback_value: {buffer['writeback_value']}")
+            # if 'instruction' in buffer: parts.append(f"Instr: {buffer['instruction']}")
+            if 'writeback_value' in buffer: parts.append(f"Writeback_value: {buffer['writeback_value']}")
+            if 'rd' in buffer: parts.append(f"rd: {buffer['rd']}")
             # if 'alu_result' in buffer: parts.append(f"alu_result: {buffer['alu_result']}")
             # if 'A' in buffer: parts.append(f"A: {buffer['A']}")
             # if 'B' in buffer: parts.append(f"B: {buffer['B']}")
