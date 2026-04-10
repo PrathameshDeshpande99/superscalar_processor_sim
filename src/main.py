@@ -213,6 +213,11 @@ class ProcessorSimulatorUI:
         l1d_misses = self.cpu.cache_hierarchy.l1d.misses
         l1d_total = l1d_hits + l1d_misses
         l1d_miss_rate = (l1d_misses / l1d_total * 100) if l1d_total > 0 else 0.0
+
+        l1i_hits = self.cpu.cache_hierarchy.l1i.hits
+        l1i_misses = self.cpu.cache_hierarchy.l1i.misses
+        l1i_total = l1i_hits + l1i_misses
+        l1i_miss_rate = (l1i_misses / l1i_total * 100) if l1i_total > 0 else 0.0
         
         l2_hits = self.cpu.cache_hierarchy.l2.hits
         l2_misses = self.cpu.cache_hierarchy.l2.misses
@@ -222,7 +227,8 @@ class ProcessorSimulatorUI:
         output.append(f"{self.BOLD}{self.GREEN}┌─ EXECUTION STATISTICS ─────────────────────────────────────────────────┐{self.WHITE}")
         output.append(f"{self.GREEN}║{self.WHITE} Clock Cycles: {self.cycle_count:<12} Instructions Exec: {self.instruction_count:<13} {self.GREEN}║{self.WHITE}")
         output.append(f"{self.GREEN}║{self.WHITE} Current PC:   {self.cpu.pc:<12} Current IPC:       {ipc:<13.2f} {self.GREEN}║{self.WHITE}")
-        output.append(f"{self.GREEN}║{self.WHITE} L1D Miss Rate:{l1d_miss_rate:>6.1f}%      L2 Miss Rate:      {l2_miss_rate:>6.1f}% {self.GREEN}║{self.WHITE}")
+        output.append(f"{self.GREEN}║{self.WHITE} L1D Miss Rate:{l1d_miss_rate:>6.1f}%      L1I Miss Rate:     {l1i_miss_rate:>6.1f}% {self.GREEN}║{self.WHITE}")
+        output.append(f"{self.GREEN}║{self.WHITE} L2 Miss Rate: {l2_miss_rate:>6.1f}%                                          {self.GREEN}║{self.WHITE}")
         output.append(f"{self.BOLD}{self.GREEN}└────────────────────────────────────────────────────────────────────────┘{self.WHITE}")
         
         # # --- MEMORY (LIVE SNAPSHOT) ---

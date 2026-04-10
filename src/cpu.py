@@ -8,7 +8,7 @@ from pipeline import Pipeline
 from alu import ALU
 from utils import bit32, create_mem_wb_buffer
 from cache import CacheHierarchy
-from processor_config import L1D_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG
+from processor_config import L1D_CONFIG, L1I_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG
 import time
 
 class CPU:
@@ -19,10 +19,15 @@ class CPU:
         """Initialize the CPU with all its internal components and state."""
         self.registers = Registers()
         self.memory = Memory()
-        self.cache_hierarchy = CacheHierarchy(self.memory, L1D_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG)
+        self.cache_hierarchy = CacheHierarchy(self.memory, L1D_CONFIG, L1I_CONFIG, L2_CONFIG, MAIN_MEMORY_CONFIG)
         self.pipeline = Pipeline()
         self.alu = ALU()
         self.pc = 0  # Track current program counter
+    
+    def _load_instructions_to_memory(self, instructions: list[bit32]):
+        """Helper to load instructions into main memory."""
+        for i, instr in enumerate(instructions):
+            self.memory.write_word(bit32(i * 4), instr)
     
     def run_program(self, instructions: list[bit32], quiet: bool = True):
         """
@@ -35,6 +40,7 @@ class CPU:
         Returns:
             Tuple of (instructions_executed, clock_cycles)
         """
+        self._load_instructions_to_memory(instructions)
         pc = 0
         old_pc = pc
         instructions_executed = 0
@@ -93,6 +99,7 @@ class CPU:
         Yields:
             Tuple of (instructions_executed, clock_cycles)
         """
+        self._load_instructions_to_memory(instructions)
         self.pc = 0
         old_pc = 0
         instructions_executed = 0

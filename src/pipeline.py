@@ -27,20 +27,20 @@ class Pipeline:
         self.EX_MEM_Buffer = create_ex_mem_buffer()
         self.MEM_WB_Buffer = create_mem_wb_buffer()
 
-    def if_stage(self, instructions: list[bit32], pc: int) -> int:
+    def if_stage(self, cache_hierarchy, pc: int) -> tuple[bit32, int]:
         """
         Instruction Fetch (IF) stage. Fetches instruction and updates buffer.
 
         Args:
-            instructions (list[bit32]): Memory list containing instructions.
+            cache_hierarchy (CacheHierarchy): Cache hierarchy for instruction fetch.
             pc (int): Program counter.
 
         Returns:
-            int: The incremented program counter.
+            tuple[bit32, int]: The fetched instruction and the fetch latency.
         """
-        self.IF_RF_Buffer["instruction"] = instructions[pc]
-        pc += 1
-        return pc
+        address = bit32(pc * 4)
+        instruction, latency = cache_hierarchy.read_instruction(address)
+        return instruction, latency
 
     def rf_stage(self, registers):
 
@@ -344,7 +344,9 @@ class Pipeline:
             self.IF_RF_Buffer = create_if_rf_buffer()     # make it nop after moving
 
         if self.PRE_IF_Buffer["remaining_cycles"] <= 0 and self.IF_RF_Buffer["instruction"] == nop:
-            self.if_stage(instructions, pc)
+            instr, latency = self.if_stage(cache_hierarchy, pc)
+            self.IF_RF_Buffer["instruction"] = instr
+            self.IF_RF_Buffer["remaining_cycles"] = latency
             self.PRE_IF_Buffer = create_pre_if_buffer()   # make it nop after moving
             instruction_fetched = True
             pc += 1    # increment pc only when instruction is actually fetched

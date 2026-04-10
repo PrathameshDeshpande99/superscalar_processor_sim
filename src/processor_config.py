@@ -4,23 +4,31 @@ THIS FILE CONTAINS LATENCIES OF DIFFERENT UNITS IN THE PROCESSOR. MODIFY THE LAT
 
 # Cache Configurations
 L1D_CONFIG = {
-    "size": 2,           # Bytes
-    "block_size": 2,       # Bytes
-    "associativity": 1,     # Ways
-    "latency": 1,           # Clock cycles
-    "replacement": "LRU"    # "LRU" or "Random"
+    "size": 8,  # Bytes
+    "block_size": 4,  # Bytes
+    "associativity": 2,  # Ways
+    "latency": 1,  # Clock cycles
+    "replacement": "LRU",  # "LRU" or "Random"
+}
+
+L1I_CONFIG = {
+    "size": 8,  # Bytes
+    "block_size": 4,  # Bytes
+    "associativity": 2,  # Ways
+    "latency": 1,  # Clock cycles
+    "replacement": "LRU",  # "LRU" or "Random"
 }
 
 L2_CONFIG = {
     "size": 32,
     "block_size": 4,
     "associativity": 8,
-    "latency": 5,           # Clock cycles
-    "replacement": "Random"
+    "latency": 5,  # Clock cycles
+    "replacement": "Random",
 }
 
 MAIN_MEMORY_CONFIG = {
-    "latency": 20           # Clock cycles
+    "latency": 20  # Clock cycles
 }
 
 IF_LATENCY = 1

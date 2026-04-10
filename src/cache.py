@@ -220,17 +220,18 @@ class Cache:
         return latency + fetch_latency + eviction_latency
 
 class CacheHierarchy:
-    def __init__(self, memory, l1d_config, l2_config, main_mem_config):
+    def __init__(self, memory, l1d_config, l1i_config, l2_config, main_mem_config):
         self.memory = memory
         self.main_mem_latency = main_mem_config["latency"]
         
         self.l2 = Cache("L2", l2_config, lower_level=None, memory=memory, main_mem_latency=self.main_mem_latency)
         self.l1d = Cache("L1D", l1d_config, lower_level=self.l2)
+        self.l1i = Cache("L1I", l1i_config, lower_level=self.l2)
         self.total_mem_stalls = 0
 
     def flush_all_caches(self):
         """
-        Flush all dirty cache lines from L1D and L2 caches to main memory.
+        Flush all dirty cache lines from L1D, L1I and L2 caches to main memory.
         This ensures that all written data is synchronized with main memory.
         """
         # Flush L1D cache
@@ -241,6 +242,14 @@ class CacheHierarchy:
                     self.l1d._write_block_to_lower(base_addr, line.data)
                     line.dirty = False
         
+        # Flush L1I cache (normally instructions are read-only, but for completeness)
+        for cache_set in self.l1i.sets:
+            for line in cache_set.lines:
+                if line.valid and line.dirty:
+                    base_addr = self.l1i.get_base_address(line.tag, self.l1i.sets.index(cache_set))
+                    self.l1i._write_block_to_lower(base_addr, line.data)
+                    line.dirty = False
+
         # Flush L2 cache
         for cache_set in self.l2.sets:
             for line in cache_set.lines:
@@ -254,6 +263,17 @@ class CacheHierarchy:
         b2, l2 = self.l1d.read_byte(address.value + 1)
         b3, l3 = self.l1d.read_byte(address.value + 2)
         b4, l4 = self.l1d.read_byte(address.value + 3)
+        val = bit32(b1.value << 24 | b2.value << 16 | b3.value << 8 | b4.value)
+        latency = max(l1, l2, l3, l4)
+        if latency > 1:
+            self.total_mem_stalls += (latency - 1)
+        return val, latency
+
+    def read_instruction(self, address: bit32):
+        b1, l1 = self.l1i.read_byte(address.value)
+        b2, l2 = self.l1i.read_byte(address.value + 1)
+        b3, l3 = self.l1i.read_byte(address.value + 2)
+        b4, l4 = self.l1i.read_byte(address.value + 3)
         val = bit32(b1.value << 24 | b2.value << 16 | b3.value << 8 | b4.value)
         latency = max(l1, l2, l3, l4)
         if latency > 1:
