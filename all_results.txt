@@ -1,0 +1,220 @@
+Running phase3_traces/trace01.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 44212299
+Instructions Retired: 715724
+IPC: 0.0162
+Stalls: 43496570
+--------------------
+TLB Hits: 357854
+TLB Misses: 8
+Page Walks: 8
+Page Faults: 8
+Page Evictions: 0
+Dirty Evictions/Writebacks: 0
+Total Translation Penalty Cycles: 358334
+--------------------
+L1D Hits: 1073586
+L1D Misses: 357862
+========================================
+
+Running phase3_traces/trace02.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 45977392
+Instructions Retired: 715704
+IPC: 0.0156
+Stalls: 45261585
+--------------------
+TLB Hits: 357836
+TLB Misses: 16
+Page Walks: 16
+Page Faults: 16
+Page Evictions: 0
+Dirty Evictions/Writebacks: 0
+Total Translation Penalty Cycles: 358796
+--------------------
+L1D Hits: 1073556
+L1D Misses: 357852
+========================================
+
+Running phase3_traces/trace03.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 49147333
+Instructions Retired: 715752
+IPC: 0.0146
+Stalls: 48431469
+--------------------
+TLB Hits: 0
+TLB Misses: 357876
+Page Walks: 357876
+Page Faults: 17
+Page Evictions: 0
+Dirty Evictions/Writebacks: 0
+Total Translation Penalty Cycles: 3579610
+--------------------
+L1D Hits: 1073628
+L1D Misses: 357876
+========================================
+
+Running phase3_traces/trace04.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 48076703
+Instructions Retired: 715728
+IPC: 0.0149
+Stalls: 47360871
+--------------------
+TLB Hits: 178516
+TLB Misses: 179348
+Page Walks: 179348
+Page Faults: 32
+Page Evictions: 0
+Dirty Evictions/Writebacks: 0
+Total Translation Penalty Cycles: 1973596
+--------------------
+L1D Hits: 1084834
+L1D Misses: 346622
+========================================
+
+Running phase3_traces/trace05.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 50854137
+Instructions Retired: 715732
+IPC: 0.0141
+Stalls: 50138400
+--------------------
+TLB Hits: 13010
+TLB Misses: 344856
+Page Walks: 344856
+Page Faults: 64
+Page Evictions: 0
+Dirty Evictions/Writebacks: 0
+Total Translation Penalty Cycles: 3464770
+--------------------
+L1D Hits: 1073673
+L1D Misses: 357791
+========================================
+
+Running phase3_traces/trace06.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 22309495
+Instructions Retired: 715728
+IPC: 0.0321
+Stalls: 21593704
+--------------------
+TLB Hits: 0
+TLB Misses: 357864
+Page Walks: 357864
+Page Faults: 357864
+Page Evictions: 357800
+Dirty Evictions/Writebacks: 107798
+Total Translation Penalty Cycles: 21471840
+--------------------
+L1D Hits: 1431392
+L1D Misses: 64
+========================================
+
+Running phase3_traces/trace07.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 63483953
+Instructions Retired: 715736
+IPC: 0.0113
+Stalls: 62768013
+--------------------
+TLB Hits: 208880
+TLB Misses: 148988
+Page Walks: 148988
+Page Faults: 59900
+Page Evictions: 59836
+Dirty Evictions/Writebacks: 57100
+Total Translation Penalty Cycles: 4693760
+--------------------
+L1D Hits: 1079207
+L1D Misses: 352265
+========================================
+
+Running phase3_traces/trace08.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 22370554
+Instructions Retired: 715740
+IPC: 0.0320
+Stalls: 21654809
+--------------------
+TLB Hits: 0
+TLB Misses: 357870
+Page Walks: 357870
+Page Faults: 357870
+Page Evictions: 357806
+Dirty Evictions/Writebacks: 71269
+Total Translation Penalty Cycles: 21472200
+--------------------
+L1D Hits: 1431416
+L1D Misses: 64
+========================================
+
+Running phase3_traces/trace09.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 70611976
+Instructions Retired: 715752
+IPC: 0.0101
+Stalls: 69896219
+--------------------
+TLB Hits: 0
+TLB Misses: 357876
+Page Walks: 357876
+Page Faults: 357876
+Page Evictions: 357812
+Dirty Evictions/Writebacks: 125515
+Total Translation Penalty Cycles: 21472560
+--------------------
+L1D Hits: 1073628
+L1D Misses: 357876
+========================================
+
+Running phase3_traces/trace10.trace
+
+========================================
+TRACE SIMULATION RESULTS
+========================================
+Total Cycles: 46939174
+Instructions Retired: 715712
+IPC: 0.0152
+Stalls: 46223358
+--------------------
+TLB Hits: 285083
+TLB Misses: 72773
+Page Walks: 72773
+Page Faults: 1716
+Page Evictions: 1652
+Dirty Evictions/Writebacks: 1652
+Total Translation Penalty Cycles: 1098613
+--------------------
+L1D Hits: 1086957
+L1D Misses: 344467
+========================================
+

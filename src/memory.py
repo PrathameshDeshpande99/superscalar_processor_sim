@@ -8,15 +8,15 @@ class Memory:
     """
     Main memory representing byte-addressable storage for the processor.
     """
-    def __init__(self, size=4096):
+    def __init__(self, physical_size_bytes=4096):
         """
         Initialize the memory with a specific size.
 
         Args:
-            size (int): The total number of bytes in memory (default 4096).
+            physical_size_bytes (int): The total number of bytes in physical memory (default 4096).
         """
-        self.size = size
-        self.data = [bit8(0) for _ in range(size)]  # Initialize memory with zeros
+        self.size = physical_size_bytes
+        self.data = [bit8(0) for _ in range(physical_size_bytes)]  # Initialize memory with zeros
 
     def read(self, address: bit32) -> bit8:
         """
