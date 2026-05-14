@@ -61,6 +61,14 @@ class Cache:
     def __init__(self, name, config, lower_level=None, memory=None, main_mem_latency=100):
         self.name = name
         self.size = config["size"]
+        if self.size == 0:
+            self.num_sets = 0
+            self.sets = []
+            self.lower_level = lower_level
+            self.memory = memory
+            self.main_mem_latency = main_mem_latency
+            return
+
         self.block_size = config["block_size"]
         self.associativity = config["associativity"]
         self.latency = config["latency"]
@@ -74,7 +82,7 @@ class Cache:
         self.main_mem_latency = main_mem_latency
         
         self.offset_bits = int(math.log2(self.block_size))
-        self.index_bits = int(math.log2(self.num_sets))
+        self.index_bits = int(math.log2(self.num_sets)) if self.num_sets > 0 else 0
         
         self.hits = 0
         self.misses = 0
@@ -89,7 +97,7 @@ class Cache:
         return (tag << (self.offset_bits + self.index_bits)) | (index << self.offset_bits)
 
     def _fetch_block_from_lower(self, block_base):
-        if self.lower_level:
+        if self.lower_level and self.lower_level.size > 0:
             return self.lower_level.read_block(block_base, self.block_size)
         else:
             # Lowest cache level: fetch from main memory
@@ -103,7 +111,7 @@ class Cache:
             return data, self.main_mem_latency
 
     def _write_block_to_lower(self, evicted_base, evicted_data):
-        if self.lower_level:
+        if self.lower_level and self.lower_level.size > 0:
             return self.lower_level.write_block(evicted_base, evicted_data)
         else:
             # Write directly to main memory
@@ -114,6 +122,9 @@ class Cache:
             return self.main_mem_latency
 
     def read_byte(self, address_val):
+        if self.size == 0:
+            return self._fetch_block_from_lower(address_val & ~3)[0][address_val & 3], self.main_mem_latency
+
         tag, index, offset = self.get_tag_index_offset(address_val)
         cache_set = self.sets[index]
         line = cache_set.find_line(tag)
@@ -139,6 +150,9 @@ class Cache:
         return line.data[offset], self.latency + fetch_latency + eviction_latency
 
     def read_block(self, addr, size):
+        if self.size == 0:
+            return self._fetch_block_from_lower(addr)
+
         tag, index, offset = self.get_tag_index_offset(addr)
         cache_set = self.sets[index]
         line = cache_set.find_line(tag)
@@ -163,6 +177,9 @@ class Cache:
         return list(line.data[offset : offset + size]), self.latency + fetch_latency + eviction_latency
 
     def write_byte(self, address_val, value: bit8):
+        if self.size == 0:
+            return self._write_block_to_lower(address_val & ~3, [value]) # Simplified
+
         tag, index, offset = self.get_tag_index_offset(address_val)
         cache_set = self.sets[index]
         line = cache_set.find_line(tag)
@@ -191,6 +208,9 @@ class Cache:
         return latency + fetch_latency + eviction_latency
 
     def write_block(self, addr, data_block):
+        if self.size == 0:
+            return self._write_block_to_lower(addr, data_block)
+
         size = len(data_block)
         tag, index, offset = self.get_tag_index_offset(addr)
         cache_set = self.sets[index]
@@ -220,19 +240,24 @@ class Cache:
         return latency + fetch_latency + eviction_latency
 
 class CacheHierarchy:
-    def __init__(self, memory, l1d_config, l1i_config, l2_config, main_mem_config):
-        self.memory = memory
+    def __init__(self, physical_memory, vm, l1d_config, l1i_config, l2_config, main_mem_config):
+        self.physical_memory = physical_memory
+        self.vm = vm
         self.main_mem_latency = main_mem_config["latency"]
         
-        self.l2 = Cache("L2", l2_config, lower_level=None, memory=memory, main_mem_latency=self.main_mem_latency)
-        self.l1d = Cache("L1D", l1d_config, lower_level=self.l2)
-        self.l1i = Cache("L1I", l1i_config, lower_level=self.l2)
+        self.l2 = Cache("L2", l2_config, lower_level=None, memory=physical_memory, main_mem_latency=self.main_mem_latency)
+        # If L2 has size 0, L1D and L1I should point to physical memory directly
+        l1d_lower_level = self.l2 if self.l2.size > 0 else None
+        l1i_lower_level = self.l2 if self.l2.size > 0 else None
+
+        self.l1d = Cache("L1D", l1d_config, lower_level=l1d_lower_level, memory=physical_memory, main_mem_latency=self.main_mem_latency)
+        self.l1i = Cache("L1I", l1i_config, lower_level=l1i_lower_level, memory=physical_memory, main_mem_latency=self.main_mem_latency)
         self.total_mem_stalls = 0
 
     def flush_all_caches(self):
         """
-        Flush all dirty cache lines from L1D, L1I and L2 caches to main memory.
-        This ensures that all written data is synchronized with main memory.
+        Flush all dirty cache lines from L1D, L1I and L2 caches to physical memory.
+        This ensures that all written data is synchronized with physical memory.
         """
         # Flush L1D cache
         for cache_set in self.l1d.sets:
@@ -251,41 +276,47 @@ class CacheHierarchy:
                     line.dirty = False
 
         # Flush L2 cache
-        for cache_set in self.l2.sets:
-            for line in cache_set.lines:
-                if line.valid and line.dirty:
-                    base_addr = self.l2.get_base_address(line.tag, self.l2.sets.index(cache_set))
-                    self.l2._write_block_to_lower(base_addr, line.data)
-                    line.dirty = False
+        if self.l2.size > 0:
+            for cache_set in self.l2.sets:
+                for line in cache_set.lines:
+                    if line.valid and line.dirty:
+                        base_addr = self.l2.get_base_address(line.tag, self.l2.sets.index(cache_set))
+                        self.l2._write_block_to_lower(base_addr, line.data)
+                        line.dirty = False
         
-    def read_word(self, address: bit32):
-        b1, l1 = self.l1d.read_byte(address.value)
-        b2, l2 = self.l1d.read_byte(address.value + 1)
-        b3, l3 = self.l1d.read_byte(address.value + 2)
-        b4, l4 = self.l1d.read_byte(address.value + 3)
+    def read_word(self, virtual_address: bit32):
+        physical_address, translation_latency = self.vm.translate(virtual_address.value, is_write=False)
+
+        b1, l1 = self.l1d.read_byte(physical_address)
+        b2, l2 = self.l1d.read_byte(physical_address + 1)
+        b3, l3 = self.l1d.read_byte(physical_address + 2)
+        b4, l4 = self.l1d.read_byte(physical_address + 3)
+        val = bit32(b1.value << 24 | b2.value << 16 | b3.value << 8 | b4.value)
+        cache_latency = max(l1, l2, l3, l4)
+        self.total_mem_stalls += (cache_latency - 1) # Assuming 1 cycle for actual memory access, rest are stalls
+        return val, cache_latency, translation_latency
+
+    def read_instruction(self, virtual_address: bit32):
+        physical_address, translation_latency = self.vm.translate(virtual_address.value, is_write=False)
+        # Instruction cache misses are not simulated, so no translation penalty for instruction fetch
+        # However, to correctly calculate total_translation_penalty for overall report, we still call translate.
+
+        b1, l1 = self.l1i.read_byte(physical_address)
+        b2, l2 = self.l1i.read_byte(physical_address + 1)
+        b3, l3 = self.l1i.read_byte(physical_address + 2)
+        b4, l4 = self.l1i.read_byte(physical_address + 3)
         val = bit32(b1.value << 24 | b2.value << 16 | b3.value << 8 | b4.value)
         latency = max(l1, l2, l3, l4)
-        if latency > 1:
-            self.total_mem_stalls += (latency - 1)
-        return val, latency
+        # self.total_mem_stalls += (latency - 1) # Instruction cache misses not explicitly stalled
+        return val, latency # Instruction fetch latency does not include translation penalty
 
-    def read_instruction(self, address: bit32):
-        b1, l1 = self.l1i.read_byte(address.value)
-        b2, l2 = self.l1i.read_byte(address.value + 1)
-        b3, l3 = self.l1i.read_byte(address.value + 2)
-        b4, l4 = self.l1i.read_byte(address.value + 3)
-        val = bit32(b1.value << 24 | b2.value << 16 | b3.value << 8 | b4.value)
-        latency = max(l1, l2, l3, l4)
-        if latency > 1:
-            self.total_mem_stalls += (latency - 1)
-        return val, latency
+    def write_word(self, virtual_address: bit32, value: bit32):
+        physical_address, translation_latency = self.vm.translate(virtual_address.value, is_write=True)
 
-    def write_word(self, address: bit32, value: bit32):
-        l1 = self.l1d.write_byte(address.value, bit8(value.value >> 24))
-        l2 = self.l1d.write_byte(address.value + 1, bit8((value.value >> 16) & 0xFF))
-        l3 = self.l1d.write_byte(address.value + 2, bit8((value.value >> 8) & 0xFF))
-        l4 = self.l1d.write_byte(address.value + 3, bit8(value.value & 0xFF))
-        latency = max(l1, l2, l3, l4)
-        if latency > 1:
-            self.total_mem_stalls += (latency - 1)
-        return latency
+        l1 = self.l1d.write_byte(physical_address, bit8(value.value >> 24))
+        l2 = self.l1d.write_byte(physical_address + 1, bit8((value.value >> 16) & 0xFF))
+        l3 = self.l1d.write_byte(physical_address + 2, bit8((value.value >> 8) & 0xFF))
+        l4 = self.l1d.write_byte(physical_address + 3, bit8(value.value & 0xFF))
+        cache_latency = max(l1, l2, l3, l4)
+        self.total_mem_stalls += (cache_latency - 1) # Assuming 1 cycle for actual memory access, rest are stalls
+        return cache_latency, translation_latency

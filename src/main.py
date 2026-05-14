@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from cpu import CPU
 from utils import bit32, bit5
-from instruction_loader import load_instructions
+# from instruction_loader import load_instructions
 
 
 class ProcessorSimulatorUI:
@@ -280,42 +280,58 @@ class ProcessorSimulatorUI:
             self.cleanup_terminal()
 
 
+from src.trace_simulator import TraceSimulator
+from src.config_parser import parse_config
+
+def run_trace_simulation(trace_file, config_file):
+    params = parse_config(config_file)
+    simulator = TraceSimulator(params)
+    simulator.load_trace(trace_file)
+    stats = simulator.run()
+    
+    print("\n" + "="*40)
+    print("TRACE SIMULATION RESULTS")
+    print("="*40)
+    print(f"Total Cycles: {stats['total_cycles']}")
+    print(f"Instructions Retired: {stats['instructions_retired']}")
+    print(f"IPC: {stats['ipc']:.4f}")
+    print(f"Stalls: {stats['stalls']}")
+    print("-" * 20)
+    print(f"TLB Hits: {stats['tlb_hits']}")
+    print(f"TLB Misses: {stats['tlb_misses']}")
+    print(f"Page Walks: {stats['page_walks']}")
+    print(f"Page Faults: {stats['page_faults']}")
+    print(f"Page Evictions: {stats['page_evictions']}")
+    print(f"Dirty Evictions/Writebacks: {stats['dirty_evictions']}")
+    print(f"Total Translation Penalty Cycles: {stats['total_translation_penalty']}")
+    print("-" * 20)
+    print(f"L1D Hits: {stats['l1d_hits']}")
+    print(f"L1D Misses: {stats['l1d_misses']}")
+    print("="*40 + "\n")
+
 def main():
     parser = argparse.ArgumentParser(
         description='Superscalar Processor Simulator with Real-Time Terminal UI',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python -m src.main test_loop 500          # Run test_loop with 500ms per cycle
-  python -m src.main sample                 # Run with default sleep time
-  python -m src.main test_add 1000          # Run test_add with 1 second per cycle
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    parser.add_argument('program', help='Assembly program name (without .txt extension)')
+    parser.add_argument('program', nargs='?', help='Assembly program name (without .txt extension)')
     parser.add_argument('sleep_time', nargs='?', type=float, default=500, 
                         help='Time to sleep between cycles in milliseconds (default: 500)')
+    parser.add_argument('--trace', type=str, help='Trace file to replay')
+    parser.add_argument('--config', type=str, help='Configuration file for simulation')
     
     args = parser.parse_args()
     
-    if args.sleep_time < 0:
-        print(f"Error: Sleep time must be non-negative")
-        sys.exit(1)
-    
-    try:
-        simulator = ProcessorSimulatorUI(args.program, args.sleep_time)
-        simulator.run_simulation()
-        
-    except FileNotFoundError as e:
-        print(f"Error: {str(e)}")
-        print(f"\nAvailable programs in assembly_programs/:")
-        asm_dir = Path(__file__).parent.parent / "assembly_programs"
-        if asm_dir.exists():
-            for f in sorted(asm_dir.glob("*.txt")):
-                print(f"  - {f.stem}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+    if args.trace:
+        if not args.config:
+            print("Error: --config is required when using --trace")
+            sys.exit(1)
+        run_trace_simulation(args.trace, args.config)
+        return
+
+    if not args.program:
+        parser.print_help()
         sys.exit(1)
 
 
