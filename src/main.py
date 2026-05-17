@@ -280,8 +280,8 @@ class ProcessorSimulatorUI:
             self.cleanup_terminal()
 
 
-from src.trace_simulator import TraceSimulator
-from src.config_parser import parse_config
+from trace_simulator import TraceSimulator
+from config_parser import parse_config
 
 def run_trace_simulation(trace_file, config_file):
     params = parse_config(config_file)

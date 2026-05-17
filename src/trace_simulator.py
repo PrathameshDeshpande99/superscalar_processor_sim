@@ -1,8 +1,8 @@
-from src.virtual_memory import VirtualMemory
-from src.cache import CacheHierarchy
-from src.registers import Registers
-from src.utils import bit32
-from src.memory import Memory
+from virtual_memory import VirtualMemory
+from cache import CacheHierarchy
+from registers import Registers
+from utils import bit32
+from memory import Memory
 
 
 class TraceInstruction:
@@ -23,7 +23,6 @@ class TraceSimulator:
         self.params = config_params
         self.vm = VirtualMemory(config_params)
 
-        # 4KB direct mapped cache as requested (no L2)
         l1d_config = {
             "size": 4096,
             "block_size": 4,
